@@ -54,3 +54,11 @@ Reach for these before guessing at Eco types, config shapes, or modding conventi
 - **EcoModKit reference repo** — https://github.com/StrangeLoopGames/EcoModKit (example mods + the ModKit Unity package).
 - **SLG blog on modding** — https://strangeloopgames.com/how-mods-work-in-eco/.
 - **mod.io** — game ID `6`. REST API: `GET https://api.mod.io/v1/games/6/mods?api_key=$MODIO_API_KEY&_q=<search>`.
+
+### DiscordLink
+
+Bridges Eco server chat/state with Discord. Used by this project.
+
+- Source: https://github.com/Eco-DiscordLink/EcoDiscordPlugin (org: https://github.com/Eco-DiscordLink)
+- Releases: https://github.com/Eco-DiscordLink/EcoDiscordPlugin/releases
+- mod.io: https://mod.io/g/eco/m/discordlink
