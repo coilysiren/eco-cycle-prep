@@ -41,3 +41,16 @@ Eco server install paths referenced across these repos:
 - Mac: `/Users/kai/Library/Application Support/Steam/steamapps/common/Eco/Eco.app/Contents/Server/`
 
 Mod sourcing for `eco-mods`: `MODIO_API_KEY` env var; mod.io game ID is 6.
+
+## Eco official docs and API
+
+Reach for these before guessing at Eco types, config shapes, or modding conventions.
+
+- **Wiki** — https://wiki.play.eco/en/ (start pages: `/en/Modding`, `/en/Mod_Development`, `/en/Ecopedia_Modding`).
+- **ModKit docs (auto-generated, tracks latest Eco)** — https://docs.play.eco/. Split into:
+  - Client API (Unity3D ModKit package)
+  - Server API (server-side ModKit DLLs)
+  - Remote API (web server, REST-style) — e.g. https://docs.play.eco/api/remote/web/ecogameapi.html
+- **EcoModKit reference repo** — https://github.com/StrangeLoopGames/EcoModKit (example mods + the ModKit Unity package).
+- **SLG blog on modding** — https://strangeloopgames.com/how-mods-work-in-eco/.
+- **mod.io** — game ID `6`. REST API: `GET https://api.mod.io/v1/games/6/mods?api_key=$MODIO_API_KEY&_q=<search>`.
