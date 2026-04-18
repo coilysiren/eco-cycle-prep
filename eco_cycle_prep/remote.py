@@ -97,7 +97,24 @@ def server_is_activating(ctx: Context) -> bool:
 
 
 def restart_server(ctx: Context):
+    """Restart via `inv eco.restart` on the server. NOTE: this shells out
+    to `sudo systemctl restart eco-server`, which cannot prompt for a
+    password over non-interactive ssh. Prefer `sigterm_server()` in a
+    flow that can tolerate systemd's RestartSec auto-restart delay."""
     ssh(ctx, f"cd {INFRA_DIR} && {REMOTE_INV} eco.restart")
+
+
+def sigterm_server(ctx: Context) -> None:
+    """Kill the running eco-server process as user `kai`. No sudo needed.
+    systemd's Restart=on-failure / RestartSec=60 policy brings the service
+    back up automatically after the process dies. Use this in scripted
+    flows where the caller is already streaming logs and waiting for a
+    post-restart signal (e.g. the preview GIF)."""
+    ssh(
+        ctx,
+        "pkill -TERM -f eco-server-start.sh || true; "
+        "pkill -TERM -f /EcoServer || true",
+    )
 
 
 @contextlib.contextmanager

@@ -75,14 +75,18 @@ def _one_roll(ctx: Context, cycle: int, seed: int) -> Path:
 
     prior_hash = _load_prior_hash(cycle_dir)
 
-    # Start streaming eco-server logs *before* the restart so the full
-    # shutdown → steamcmd pre → boot → world-gen → preview sequence is visible.
+    # Start streaming eco-server logs *before* we bounce the server so the
+    # full shutdown → steamcmd pre → boot → world-gen → preview sequence is
+    # visible inline.
+    #
+    # We SIGTERM the running process instead of calling `inv eco.restart`
+    # because that task shells out to `sudo systemctl restart eco-server`,
+    # and non-interactive ssh can't answer a sudo password prompt. systemd's
+    # Restart=on-failure policy picks the service back up automatically
+    # after the process dies. Our `pkill` runs as user `kai` and targets
+    # kai's own processes, so it needs no elevation.
     with remote.stream_server_logs():
-        if not remote.server_is_activating(ctx):
-            remote.restart_server(ctx)
-        else:
-            print("server already restarting; skipping inv eco.restart")
-
+        remote.sigterm_server(ctx)
         print("waiting for preview (streaming eco-server logs until stable)...")
         gif, gif_hash = preview.wait_for_preview(prior_hash=prior_hash)
     gif_path = preview.save(gif, out_dir / "WorldPreview.gif")
