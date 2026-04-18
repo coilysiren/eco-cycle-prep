@@ -75,6 +75,16 @@ def ad(ctx, cycle, start_ts, sync_network=True):
         announce.sync_network_description(cycle=int(cycle))
 
 
+@task(help={"cycle": "Cycle number"})
+def eco_configs_post(ctx, cycle):
+    """Emit the cycle kickoff post for Sirens' own #eco-configs channel.
+    Different format from `inv ad`: longer prose, mod.io links, no invite
+    or server-id headers. Prints to stdout and saves under rolls/_prep/."""
+    from eco_map_generator import announce
+
+    announce.run_eco_configs(cycle=int(cycle))
+
+
 @task(
     help={
         "names": "Comma-separated mod folder names to remove (UserCode/<name>). "
