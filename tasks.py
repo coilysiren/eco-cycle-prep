@@ -31,6 +31,18 @@ def forum_dump(ctx, days=60):
 
 @task(
     help={
+        "cycle": "Cycle number (used for naming + full channel pull)",
+        "days": "Lookback window for suggestions + forum (default 60)",
+    }
+)
+def brief(ctx, cycle, days=60):
+    from eco_map_generator import prep as prep_module
+
+    prep_module.run_brief(ctx, cycle=int(cycle), days=int(days))
+
+
+@task(
+    help={
         "cycle": "Current Eco cycle number",
         "count": "How many rolls to generate (default 1)",
         "seed": "Specific seed to use. If set, overrides random and forces count=1.",

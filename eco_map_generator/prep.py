@@ -115,6 +115,60 @@ def dump_forum_since(
     return lines
 
 
+def dump_channel_full(name: str, channel_id: str) -> list[str]:
+    msgs = discord_rest.get_all_messages(channel_id)
+    lines = [f"## {name}  ({channel_id})  — {len(msgs)} messages (full history)\n"]
+    for m in msgs:
+        lines.append(_fmt_msg(m))
+    lines.append("")
+    return lines
+
+
+def dump_channel_since(name: str, channel_id: str, since: datetime) -> list[str]:
+    after = _snowflake_for_datetime(since)
+    msgs = discord_rest.get_all_messages(channel_id, after_snowflake=after)
+    lines = [
+        f"## {name}  ({channel_id})  — {len(msgs)} messages since "
+        f"{since.isoformat()}\n"
+    ]
+    for m in msgs:
+        lines.append(_fmt_msg(m))
+    lines.append("")
+    return lines
+
+
+def run_brief(_: Context, *, cycle: int, days: int = 60) -> Path:
+    """Collect full cycle-N channel history + last `days` of suggestions +
+    last `days` of suggestions-forum into one Markdown brief."""
+    guild_id = ssm.get("/discord/server-id")
+    cycle_channel = ssm.get("/discord/channel/cycle-current")
+    sugg_channel = ssm.get("/discord/channel/suggestions")
+    sugg_forum = ssm.get("/discord/channel/suggestions-forum")
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    print(f"-- cycle {cycle} channel: full history")
+    print(f"-- suggestions + forum: since {since.isoformat()}")
+
+    lines: list[str] = [
+        f"# pre-cycle {cycle} brief\n",
+        f"Generated {datetime.now(timezone.utc).isoformat()}\n",
+        f"Cycle-{cycle} channel: full history. "
+        f"Suggestions + suggestions-forum: last {days} days.\n",
+    ]
+    lines.extend(dump_channel_full(f"cycle-{cycle} channel", cycle_channel))
+    lines.extend(dump_channel_since("suggestions", sugg_channel, since))
+    lines.extend(
+        dump_forum_since("suggestions-forum", guild_id, sugg_forum, since)
+    )
+
+    PREP_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    out = PREP_DIR / f"brief-cycle-{cycle}-{days}d-{stamp}.md"
+    out.write_text("\n".join(lines), encoding="utf-8")
+    print(f"brief written to {out}")
+    return out
+
+
 def run_forum_dump(_: Context, *, since_days: int = 60) -> Path:
     """Standalone: dump suggestions-forum for the last `since_days` days."""
     guild_id = ssm.get("/discord/server-id")
