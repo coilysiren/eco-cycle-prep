@@ -1,0 +1,55 @@
+"""SSH helpers for kai-server. Uses the user's configured ssh client; assumes keys."""
+
+from invoke.context import Context
+
+HOST = "kai@kai-server"
+INFRA_DIR = "~/projects/infrastructure"
+ECO_SERVER_DIR = "/home/kai/Steam/steamapps/common/EcoServer"
+
+
+def ssh(ctx: Context, remote_cmd: str, *, echo: bool = True, hide: bool = False):
+    """Run a single command on kai-server and return the result."""
+    return ctx.run(f'ssh {HOST} {_shell_quote(remote_cmd)}', echo=echo, hide=hide, pty=False)
+
+
+def _shell_quote(s: str) -> str:
+    return "'" + s.replace("'", "'\\''") + "'"
+
+
+def steamcmd_update(ctx: Context):
+    """Run the Eco server pre-start script (steamcmd install/update)."""
+    ssh(ctx, "bash /home/kai/projects/infrastructure/scripts/eco-server-pre.sh")
+
+
+def infra_pull(ctx: Context):
+    ssh(ctx, f"cd {INFRA_DIR} && git pull --ff-only")
+
+
+def copy_configs(ctx: Context):
+    """Run `inv eco.copy-configs --with-world-gen` on kai-server."""
+    ssh(ctx, f"cd {INFRA_DIR} && inv eco.copy-configs --with-world-gen")
+
+
+def reset_world_storage(ctx: Context):
+    """Delete Storage/Backup, Storage/Game.db, Storage/Game.eco, Logs/."""
+    paths = [
+        f"{ECO_SERVER_DIR}/Storage/Backup",
+        f"{ECO_SERVER_DIR}/Storage/Game.db",
+        f"{ECO_SERVER_DIR}/Storage/Game.eco",
+        f"{ECO_SERVER_DIR}/Logs",
+    ]
+    ssh(ctx, "rm -rf " + " ".join(paths))
+
+
+def server_is_active(ctx: Context) -> bool:
+    r = ssh(ctx, "systemctl is-active eco-server || true", echo=False, hide=True)
+    return r.stdout.strip() == "active"
+
+
+def server_is_activating(ctx: Context) -> bool:
+    r = ssh(ctx, "systemctl is-active eco-server || true", echo=False, hide=True)
+    return r.stdout.strip() in {"activating", "reloading"}
+
+
+def restart_server(ctx: Context):
+    ssh(ctx, f"cd {INFRA_DIR} && inv eco.restart")
