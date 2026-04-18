@@ -62,3 +62,13 @@ Bridges Eco server chat/state with Discord. Used by this project.
 - Source: https://github.com/Eco-DiscordLink/EcoDiscordPlugin (org: https://github.com/Eco-DiscordLink)
 - Releases: https://github.com/Eco-DiscordLink/EcoDiscordPlugin/releases
 - mod.io: https://mod.io/g/eco/m/discordlink
+
+## World generation reference
+
+See [`docs/worldgen.md`](docs/worldgen.md) for the full map-generation
+reference: `WorldGenerator.eco` config schema, the biome catalog with
+colors and block palettes, `WorldPreview.gif` format (single-frame 8-bit
+indexed; pixel size is `WorldWidth × 10`, so 720×720 at Sirens' current
+72-chunk sizing), sibling `/Layers/` GIFs, and what's inferable from
+config-only vs config+GIF. Consult this before writing anything that
+reads world config or parses the preview image.

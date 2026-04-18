@@ -3,6 +3,7 @@
 Weekly prep:         inv prep --cycle <N>
 Discord intel:       inv brief --cycle <N> [--days <D>]  |  inv forum-dump [--days <D>]
 Map rolls (repeat):  inv roll --cycle <N> [--seed <S>]   # one seed per invocation
+Narrate a map:       inv narrate [--gif PATH] [--config PATH] [--features]
 Mod management:      inv mods-sync  |  inv mods-disable --names=A,B,C
 Announcements:       inv ad --cycle <N> --start-ts <unix>  |  inv eco-configs-post --cycle <N>
 Go live:             inv go-live   # runtime flip on kai-server; git Network.eco stays private
@@ -144,6 +145,35 @@ def roll(ctx, cycle, seed=None):
         ctx,
         cycle=int(cycle),
         seed=int(seed) if seed is not None else None,
+    )
+
+
+@task(
+    help={
+        "gif": "Path to a local WorldPreview.gif. Default: fetch the live "
+        "server at eco.coilysiren.me:3001.",
+        "config": "Path to a WorldGenerator.eco config. Default: the "
+        "checked-in copy at eco-configs/Configs/WorldGenerator.eco.",
+        "features": "Also print the raw feature breakdown before the narrative. "
+        "Useful while tuning thresholds and wording.",
+    }
+)
+def narrate(ctx, gif=None, config=None, features=False):
+    """Describe a generated map in prose.
+
+    Reads the preview GIF + world config, extracts biome/land-shape
+    features, and prints a short narrative suitable for pasting into a
+    Discord post. Standalone for now — not yet wired into `inv roll`
+    while we iterate on wording.
+    """
+    from pathlib import Path
+
+    from eco_cycle_prep import narrative as narrative_module
+
+    narrative_module.run(
+        gif_path=Path(gif) if gif else None,
+        config_path=Path(config) if config else None,
+        show_features=bool(features),
     )
 
 
