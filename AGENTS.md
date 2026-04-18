@@ -65,10 +65,18 @@ Bridges Eco server chat/state with Discord. Used by this project.
 
 ## World generation reference
 
-See [`docs/worldgen.md`](docs/worldgen.md) for the full map-generation
-reference: `WorldGenerator.eco` config schema, the biome catalog with
-colors and block palettes, `WorldPreview.gif` format (single-frame 8-bit
-indexed; pixel size is `WorldWidth × 10`, so 720×720 at Sirens' current
-72-chunk sizing), sibling `/Layers/` GIFs, and what's inferable from
-config-only vs config+GIF. Consult this before writing anything that
-reads world config or parses the preview image.
+Two companion reference docs under `docs/`:
+
+- [`docs/worldgen.md`](docs/worldgen.md) — the map-generation
+  reference: `WorldGenerator.eco` config schema, the biome catalog
+  with colors and block palettes, `WorldPreview.gif` format
+  (single-frame 8-bit indexed; pixel size is `WorldWidth × 10`, so
+  720×720 at Sirens' current 72-chunk sizing), sibling `/Layers/`
+  GIFs, and what's inferable from config-only vs config+GIF.
+- [`docs/biomes.md`](docs/biomes.md) — per-biome plants, animals,
+  and minerals. Feeds `inv narrate` with the flavor color that lets
+  a map description say "oak and elk on granite" instead of just
+  "warm forest." Scope is vanilla Eco plus the Sirens mod stack.
+
+Consult both before writing anything that reads world config, parses
+the preview image, or attempts to narrate a map in prose.
