@@ -375,11 +375,15 @@ def render_ingame_description(cycle: int) -> str:
     content = list_content_mods()
     custom = list_custom_mods()
     total_mods = len(content) + len(custom)
-    mod_highlights = ", ".join(
-        [m for m in ["Biochemist", "Easy Logging", "Dinner Parties"] if True]
-        + custom[:3]
-    )
-    mods_tagline = f"{total_mods}+ mods including {mod_highlights}"
+    # Pick a handful of name-recognition hits: one or two Content mods
+    # people already know, plus the Sirens-only customs that read as
+    # "wait, that's cool" to a server-browser skimmer.
+    highlights: list[str] = []
+    for m in ["Biochemist", "Animal Husbandry", "Greenhouses"]:
+        if m in content:
+            highlights.append(m)
+    highlights.extend(custom[:3])
+    mods_tagline = f"{total_mods}+ including {', '.join(highlights)}"
 
     # Pick 5-6 highest-signal configs
     config_tagline = (
