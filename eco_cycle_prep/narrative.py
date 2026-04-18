@@ -93,11 +93,19 @@ class Features:
     # Shapes
     continent_count: int = 0
     island_count: int = 0
+    landmass_sizes: list[int] = field(default_factory=list)  # sorted descending
     largest_landmass_pixels: int = 0
+    largest_landmass_centroid: tuple[float, float] = (0.0, 0.0)  # normalized [-1, 1]
     lake_count: int = 0
     open_ocean_pixels: int = 0
+    coastline_pixels: int = 0
     ice_cap_north: bool = False
     ice_cap_south: bool = False
+    # Per-kind spatial stats, normalized to [-1, 1] with origin at map center.
+    # cx>0 = east, cy>0 = south. spread is mean pixel distance from centroid
+    # in the same normalized space (0 = all in one spot, ~0.5 = map-wide).
+    kind_centroids: dict[str, tuple[float, float]] = field(default_factory=dict)
+    kind_spreads: dict[str, float] = field(default_factory=dict)
     # Config
     seed: int = 0
     world_w: int = 0
@@ -120,6 +128,12 @@ class Features:
 
     def land_kind_fraction(self, kind: str) -> float:
         return self.kind_pixels.get(kind, 0) / self.land_pixels if self.land_pixels else 0.0
+
+    @property
+    def world_meters(self) -> int:
+        """World edge in meters. GIF is 1 pixel per voxel-column, which
+        is 1m × 1m in Eco."""
+        return self.width
 
 
 def _classify_rgb(r: int, g: int, b: int) -> tuple[str, str]:
@@ -216,6 +230,112 @@ def _water_components(water_mask: list[list[bool]]) -> tuple[int, int, int]:
     return open_ocean, lakes, oceans
 
 
+def _largest_component_centroid(
+    mask: list[list[bool]],
+) -> tuple[int, tuple[float, float]]:
+    """Return (size_of_largest, centroid_normalized). Normalized centroid
+    is (cx, cy) in [-1, 1] with origin at the image center, +x east, +y
+    south (image-space conventions; callers map to compass words)."""
+    h = len(mask)
+    w = len(mask[0]) if h else 0
+    if not w or not h:
+        return 0, (0.0, 0.0)
+    seen = [[False] * w for _ in range(h)]
+    best_size = 0
+    best_cx = 0.0
+    best_cy = 0.0
+    for y0 in range(h):
+        for x0 in range(w):
+            if not mask[y0][x0] or seen[y0][x0]:
+                continue
+            size = 0
+            sx = 0
+            sy = 0
+            q: deque[tuple[int, int]] = deque([(x0, y0)])
+            seen[y0][x0] = True
+            while q:
+                x, y = q.popleft()
+                size += 1
+                sx += x
+                sy += y
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < w and 0 <= ny < h and mask[ny][nx] and not seen[ny][nx]:
+                        seen[ny][nx] = True
+                        q.append((nx, ny))
+            if size > best_size:
+                best_size = size
+                best_cx = (sx / size) / (w / 2) - 1.0
+                best_cy = (sy / size) / (h / 2) - 1.0
+    return best_size, (best_cx, best_cy)
+
+
+def _coastline_count(
+    water_mask: list[list[bool]], land_mask: list[list[bool]]
+) -> int:
+    """Count land pixels with at least one 4-neighbor water pixel.
+
+    High counts relative to the square-root of land area indicate a ragged,
+    inlet-heavy coastline; low counts indicate smooth continental edges."""
+    h = len(water_mask)
+    w = len(water_mask[0]) if h else 0
+    count = 0
+    for y in range(h):
+        for x in range(w):
+            if not land_mask[y][x]:
+                continue
+            if (
+                (x > 0 and water_mask[y][x - 1]) or
+                (x < w - 1 and water_mask[y][x + 1]) or
+                (y > 0 and water_mask[y - 1][x]) or
+                (y < h - 1 and water_mask[y + 1][x])
+            ):
+                count += 1
+    return count
+
+
+def _kind_spatial_stats(
+    pixel_rows: list[list[int]],
+    palette_map: dict[int, dict],
+    width: int,
+    height: int,
+) -> tuple[dict[str, tuple[float, float]], dict[str, float]]:
+    """Return per-kind centroids (normalized [-1, 1]) and per-kind
+    dispersion (mean pixel distance from centroid in normalized units).
+
+    Single pass over all pixels: accumulate sum_x, sum_y, sum_x2, sum_y2,
+    and count per kind, then solve for mean + stddev."""
+    sums: dict[str, list[int]] = {}  # kind -> [sum_x, sum_y, sum_x2, sum_y2, n]
+    for y, row in enumerate(pixel_rows):
+        for x, idx in enumerate(row):
+            kind = palette_map.get(idx, {}).get("kind", "other")
+            s = sums.get(kind)
+            if s is None:
+                s = [0, 0, 0, 0, 0]
+                sums[kind] = s
+            s[0] += x
+            s[1] += y
+            s[2] += x * x
+            s[3] += y * y
+            s[4] += 1
+
+    hx, hy = width / 2, height / 2
+    centroids: dict[str, tuple[float, float]] = {}
+    spreads: dict[str, float] = {}
+    for kind, (sx, sy, sx2, sy2, n) in sums.items():
+        if n == 0:
+            continue
+        mx = sx / n
+        my = sy / n
+        var_x = max(0.0, sx2 / n - mx * mx)
+        var_y = max(0.0, sy2 / n - my * my)
+        # Normalize to [-1, 1] and record centroid + isotropic spread.
+        centroids[kind] = (mx / hx - 1.0, my / hy - 1.0)
+        spread = ((var_x + var_y) ** 0.5) / max(hx, hy)
+        spreads[kind] = spread
+    return centroids, spreads
+
+
 def _ice_caps(
     pixel_rows: list[list[int]],
     palette_map: dict[int, dict],
@@ -272,13 +392,15 @@ def extract_features(gif: bytes | Path, config: dict) -> Features:
     land_mask = [[palette_map[p]["kind"] in LAND_KINDS for p in row] for row in pixel_rows]
 
     land_sizes = sorted(_components(land_mask), reverse=True)
+    largest_size, largest_centroid = _largest_component_centroid(land_mask)
     open_ocean, lake_count, _ = _water_components(water_mask)
+    coastline_pixels = _coastline_count(water_mask, land_mask)
+    kind_centroids, kind_spreads = _kind_spatial_stats(pixel_rows, palette_map, w, h)
 
     # Continent vs island split: anything ≥ 1% of total pixels is a continent.
     total_pixels = w * h
     continent_threshold = max(400, total_pixels // 100)
     continent_count = sum(1 for s in land_sizes if s >= continent_threshold)
-    island_count = sum(1 for s in land_sizes if s < continent_threshold)
     # Drop tiny "islands" that are almost certainly single stray pixels
     # from quantization or one-pixel peninsulas.
     min_island = max(4, total_pixels // 10_000)
@@ -318,9 +440,14 @@ def extract_features(gif: bytes | Path, config: dict) -> Features:
         kind_pixels=kind_pixels,
         continent_count=continent_count,
         island_count=island_count,
-        largest_landmass_pixels=land_sizes[0] if land_sizes else 0,
+        landmass_sizes=land_sizes,
+        largest_landmass_pixels=largest_size,
+        largest_landmass_centroid=largest_centroid,
         lake_count=lake_count,
         open_ocean_pixels=open_ocean,
+        coastline_pixels=coastline_pixels,
+        kind_centroids=kind_centroids,
+        kind_spreads=kind_spreads,
         ice_cap_north=ice_cap_n,
         ice_cap_south=ice_cap_s,
         seed=int(inner.get("Seed", 0)),
@@ -355,7 +482,7 @@ BIOME_LABELS = {
 }
 
 
-def _top_biomes(features: Features, n: int = 4) -> list[tuple[str, float]]:
+def _top_biomes(features: Features, n: int = 5) -> list[tuple[str, float]]:
     """Return the top-N biome-indicating land kinds by fraction of land."""
     ranked: list[tuple[str, float]] = []
     for kind in BIOME_SOIL_KINDS | {"ice", "snow"}:
@@ -366,132 +493,366 @@ def _top_biomes(features: Features, n: int = 4) -> list[tuple[str, float]]:
     return ranked[:n]
 
 
-def _shape_sentence(f: Features) -> str:
+# Config biome weight field → kind mapping, for realized-vs-target deltas.
+# "cool_forest" in config = our "cold_forest" kind.
+CONFIG_TO_KIND = {
+    "desert": "desert",
+    "warm_forest": "warm_forest",
+    "cool_forest": "cold_forest",
+    "rainforest": "rainforest",
+    "wetland": "wetland",
+    "taiga": "taiga",
+    "tundra": "tundra",
+    "ice": "ice",
+}
+
+
+def _direction(cx: float, cy: float, *, edge_bias: float = 0.25) -> str:
+    """Map a normalized centroid (cx, cy) with cx>0 east / cy>0 south into
+    a compass-ish phrase. Returns "center" if the centroid sits near the
+    origin relative to `edge_bias`. This uses image-up == north convention,
+    which is how players read a top-down preview."""
+    ns = -cy  # flip y so positive == north
+    ew = cx
+    # "center" when both magnitudes are small.
+    if abs(ns) < edge_bias and abs(ew) < edge_bias:
+        return "center of the map"
+
+    def axis(mag: float, pos: str, neg: str) -> str:
+        if mag > edge_bias:
+            return pos
+        if mag < -edge_bias:
+            return neg
+        return ""
+
+    ns_word = axis(ns, "north", "south")
+    ew_word = axis(ew, "east", "west")
+    parts = [p for p in (ns_word, ew_word) if p]
+    if len(parts) == 2:
+        return f"{parts[0]}{parts[1]}"  # "northeast", "southwest", etc.
+    if len(parts) == 1:
+        return parts[0]
+    return "center"
+
+
+def _locational_phrase(kind: str, f: Features, *, terse: bool = False) -> str:
+    """'in the southeast' / 'spread across the map' depending on spread.
+
+    If terse=True, collapses long-form phrasings into compact forms
+    suitable for appearing inside a comma-separated list."""
+    center = f.kind_centroids.get(kind)
+    spread = f.kind_spreads.get(kind, 0.0)
+    if center is None:
+        return ""
+    direction = _direction(*center)
+    central = direction == "center of the map"
+    # Tight cluster.
+    if spread <= 0.28:
+        if central:
+            return "clustered near the center"
+        return f"clustered in the {direction}"
+    # Medium spread.
+    if spread <= 0.40:
+        if central:
+            return "distributed unevenly across the interior"
+        if terse:
+            return f"favoring the {direction}"
+        return f"concentrated toward the {direction}"
+    # Large spread.
+    if central:
+        return "scattered across the map"
+    if terse:
+        return f"leaning {direction}"
+    return f"spread broadly, leaning {direction}"
+
+
+def _paragraph_shape(f: Features) -> str:
     water_pct = round(f.water_fraction * 100)
     land_pct = 100 - water_pct
+    world_m = f.world_meters
+    chunks = f.world_w  # Dimensions.WorldWidth is in chunks
+
     if f.continent_count == 0:
-        # Pathological — the whole world is water or nearly so.
         return (
-            f"An almost entirely submerged world ({water_pct}% open water, "
-            f"no landmass large enough to call a continent)."
+            f"A {world_m}-meter square world that reads as almost pure ocean "
+            f"({water_pct}% open water). No landmass is large enough to call "
+            "a continent; whatever land appears is scattered micro-islands."
         )
-    continent_words = {1: "One continent", 2: "Two continents", 3: "Three continents",
-                       4: "Four continents", 5: "Five continents"}
-    continent_word = continent_words.get(f.continent_count, f"{f.continent_count} continents")
 
-    if f.island_count == 0:
-        island_clause = ""
-    elif f.island_count == 1:
-        island_clause = "; one outlying island"
-    elif f.island_count <= 4:
-        island_clause = f", flanked by {f.island_count} smaller islands"
-    else:
-        island_clause = f"; a scattered archipelago of {f.island_count} islands surrounds them"
+    continent_words = {1: "A single continent", 2: "Two continents",
+                       3: "Three continents", 4: "Four continents",
+                       5: "Five continents"}
+    continent_word = continent_words.get(f.continent_count,
+                                          f"{f.continent_count} continents")
+    continent_verb = "occupies" if f.continent_count == 1 else "occupy"
 
+    # Relative scale of the largest vs total land.
     largest_frac = f.largest_landmass_pixels / f.total_pixels if f.total_pixels else 0
-    dominant_note = ""
-    if f.continent_count >= 2 and largest_frac > 0.35:
-        dominant_note = ". The largest dwarfs the rest"
+    largest_dir = _direction(*f.largest_landmass_centroid, edge_bias=0.20)
 
-    lake_words = {1: "One inland lake", 2: "Two inland lakes",
-                  3: "Three inland lakes", 4: "Four inland lakes",
-                  5: "Five inland lakes"}
-    if f.lake_count == 0:
-        lake_clause = ""
-    elif f.lake_count == 1:
-        lake_clause = " One inland lake breaks up the interior."
+    # Islands clause
+    if f.island_count == 0:
+        island_clause = "with no separate islands of note"
+    elif f.island_count == 1:
+        island_clause = "plus one outlying island"
+    elif f.island_count <= 4:
+        island_clause = f"flanked by {f.island_count} smaller islands"
     else:
-        word = lake_words.get(f.lake_count, f"{f.lake_count} inland lakes")
-        lake_clause = f" {word} break up the interior."
+        island_clause = f"ringed by an archipelago of {f.island_count} islands"
 
-    return (
-        f"{continent_word} on a {land_pct}% land / {water_pct}% water map"
-        f"{island_clause}{dominant_note}.{lake_clause}"
+    # Opening sentence.
+    lead = (
+        f"{continent_word} {continent_verb} {land_pct}% of a {world_m}-meter "
+        f"({chunks}-chunk) square world, {island_clause}."
     )
 
+    # Second sentence: anchoring and scale.
+    anchor_line = ""
+    if f.continent_count == 1 and largest_dir != "center of the map":
+        anchor_line = f" The main landmass is anchored in the {largest_dir}."
+    elif f.continent_count > 1 and largest_frac > 0.40:
+        if largest_dir != "center of the map":
+            anchor_line = (f" The biggest landmass anchors the {largest_dir} "
+                           f"and dwarfs its neighbors.")
+        else:
+            anchor_line = " One landmass fills the middle of the world and dwarfs the rest."
+    elif f.continent_count > 1 and 0.25 < largest_frac <= 0.40:
+        anchor_line = " The continents differ noticeably in scale but none overwhelms the others."
 
-def _climate_sentence(f: Features) -> str:
-    top = _top_biomes(f, n=4)
+    # Lake + coastline sentence.
+    lake_words = {0: "no inland lakes",
+                  1: "one inland lake",
+                  2: "two inland lakes",
+                  3: "three inland lakes",
+                  4: "four inland lakes",
+                  5: "five inland lakes",
+                  6: "six inland lakes",
+                  7: "seven inland lakes"}
+    lake_phrase = lake_words.get(f.lake_count, f"{f.lake_count} inland lakes")
+
+    import math
+    coast_desc = ""
+    if f.land_pixels > 0:
+        # Ratio of coast-adjacent land pixels to sqrt(land area). Calibrated
+        # from samples: ~0.9 for a single smooth island, ~1.1+ for moderately
+        # ragged, 1.5+ for finger-like coasts.
+        ruggedness = f.coastline_pixels / (math.sqrt(f.land_pixels) * 4.0)
+        if ruggedness > 1.5:
+            coast_desc = "deeply indented, full of inlets and peninsulas"
+        elif ruggedness > 1.1:
+            coast_desc = "moderately ragged, with a few pronounced bays"
+        else:
+            coast_desc = "smooth, with few bays or peninsulas"
+
+    if f.lake_count == 0:
+        water_line = f" No lakes break up the interior; the coastlines are {coast_desc}." if coast_desc else ""
+    else:
+        lake_verb = "breaks" if f.lake_count == 1 else "break"
+        water_line = (
+            f" {lake_phrase.capitalize()} {lake_verb} up the interior, and "
+            f"the coastlines are {coast_desc}." if coast_desc
+            else f" {lake_phrase.capitalize()} {lake_verb} up the interior."
+        )
+
+    return lead + anchor_line + water_line
+
+
+def _paragraph_biomes(f: Features) -> str:
+    top = _top_biomes(f, n=5)
     if not top:
-        return "The preview doesn't resolve clear biome signatures."
+        return "The preview doesn't resolve clear biome signatures from soil colors alone."
 
+    # Dominant biome clause.
     first_kind, first_frac = top[0]
     first_label = BIOME_LABELS.get(first_kind, first_kind)
-
-    # Adjective scales with how dominant the top biome is.
-    if first_frac >= 0.35:
+    first_loc = _locational_phrase(first_kind, f, terse=True)
+    if first_frac >= 0.30:
         lead = f"The land is dominated by {first_label}"
     elif first_frac >= 0.20:
-        lead = f"The land leans heavily toward {first_label}"
+        lead = f"{first_label.capitalize()} leads the biome mix"
     elif first_frac >= 0.10:
-        lead = f"The biggest biome on land is {first_label}"
+        lead = f"{first_label.capitalize()} is the single biggest biome"
     else:
-        lead = f"{first_label.capitalize()} is the largest single biome, though no one biome dominates"
+        lead = f"{first_label.capitalize()} narrowly edges out the others"
 
-    lead = f"{lead} ({round(first_frac * 100)}%)"
+    lead += f" ({round(first_frac * 100)}% of land, {first_loc})"
 
-    rest = top[1:]
-    if rest:
-        parts = [f"{BIOME_LABELS.get(k, k)} at {round(frac * 100)}%"
-                 for k, frac in rest]
-        if len(parts) == 1:
-            lead += f", backed by {parts[0]}"
+    # Runners-up with their own locations — keeps the paragraph from
+    # being a flat list. Terse locational phrasing inside the list so
+    # three back-to-back entries don't all repeat "spread broadly."
+    runner_bits: list[str] = []
+    for kind, frac in top[1:4]:
+        label = BIOME_LABELS.get(kind, kind)
+        loc = _locational_phrase(kind, f, terse=True)
+        runner_bits.append(f"{label} at {round(frac * 100)}% {loc}")
+    if runner_bits:
+        if len(runner_bits) == 1:
+            lead += f". Behind it, {runner_bits[0]}"
         else:
-            lead += ", with " + ", ".join(parts[:-1]) + f", and {parts[-1]} filling in"
+            lead += (". Behind it, "
+                     + ", ".join(runner_bits[:-1])
+                     + f", and {runner_bits[-1]}")
+    lead += "."
 
-    cap_bits: list[str] = []
+    # Config-vs-realized commentary for the handful of biomes with
+    # non-trivial targets. Call out big misses in either direction.
+    deltas: list[str] = []
+    for cfg_key, kind in CONFIG_TO_KIND.items():
+        target = f.biome_weights.get(cfg_key, 0.0)
+        if target < 0.02:
+            continue  # not worth commenting on
+        realized = f.land_kind_fraction(kind)
+        delta = realized - target
+        if delta > 0.08:
+            deltas.append(
+                f"{BIOME_LABELS.get(kind, kind)} overshot its "
+                f"{round(target * 100)}% target (now {round(realized * 100)}%)"
+            )
+        elif delta < -0.08 and target >= 0.10:
+            deltas.append(
+                f"{BIOME_LABELS.get(kind, kind)} underperformed its "
+                f"{round(target * 100)}% target (only {round(realized * 100)}%)"
+            )
+        elif realized < 0.01 and target >= 0.03:
+            deltas.append(
+                f"{BIOME_LABELS.get(kind, kind)} is nearly invisible on the "
+                f"preview despite a {round(target * 100)}% target"
+            )
+
+    climate = ""
+    if deltas:
+        if len(deltas) == 1:
+            climate = f" Compared to the config weights, {deltas[0]}."
+        else:
+            climate = (" Compared to the config weights, "
+                       + ", ".join(deltas[:-1])
+                       + f", and {deltas[-1]}.")
+
+    # Polar cap callout
+    cap = ""
     if f.ice_cap_north and f.ice_cap_south:
-        cap_bits.append("ice caps at both poles")
+        cap = " Ice caps ride both the northern and southern edges."
     elif f.ice_cap_north:
-        cap_bits.append("an ice cap along the northern edge")
+        cap = " A visible ice cap rides the northern edge."
     elif f.ice_cap_south:
-        cap_bits.append("an ice cap along the southern edge")
-    if cap_bits:
-        lead += f", and {cap_bits[0]}"
+        cap = " A visible ice cap rides the southern edge."
 
-    return lead + "."
+    # Overall climate characterization from the biome mix.
+    hot = f.land_kind_fraction("desert") + f.land_kind_fraction("rainforest") + f.land_kind_fraction("warm_forest")
+    cold = f.land_kind_fraction("cold_forest") + f.land_kind_fraction("taiga") + f.land_kind_fraction("tundra") + f.land_kind_fraction("ice") + f.land_kind_fraction("snow")
+    wet = f.land_kind_fraction("rainforest") + f.land_kind_fraction("wetland")
+    dry = f.land_kind_fraction("desert")
+    mood_bits: list[str] = []
+    if hot - cold > 0.12:
+        mood_bits.append("warm overall")
+    elif cold - hot > 0.12:
+        mood_bits.append("cool overall")
+    if wet - dry > 0.08:
+        mood_bits.append("wet")
+    elif dry - wet > 0.06:
+        mood_bits.append("dry")
+    mood = ""
+    if mood_bits:
+        mood = f" Climate reads {' and '.join(mood_bits)}."
+
+    return lead + mood + climate + cap
 
 
-def _geology_sentence(f: Features) -> str:
-    """Optional third sentence: rare/notable features worth calling out."""
+def _paragraph_geology(f: Features) -> str:
+    """Third paragraph: surface stone, ore, notable geological features."""
     bits: list[str] = []
+
     granite = f.land_kind_fraction("granite")
     sandstone = f.land_kind_fraction("sandstone")
     limestone = f.land_kind_fraction("limestone")
-    basalt = f.kind_pixels.get("basalt", 0) / f.total_pixels if f.total_pixels else 0
+    basalt_frac = f.kind_pixels.get("basalt", 0) / f.total_pixels if f.total_pixels else 0
+    ocean_floor = f.kind_pixels.get("ocean_floor", 0) / f.total_pixels if f.total_pixels else 0
+    dirt_frac = f.land_kind_fraction("dirt")
 
-    if granite > 0.05:
-        bits.append("granite cliffs cut through the forests")
-    elif sandstone > 0.03:
-        bits.append("sandstone ridges rise out of the desert")
-    elif limestone > 0.03:
-        bits.append("limestone outcrops stripe the plains")
+    stone_bits: list[str] = []
+    if granite > 0.04:
+        stone_bits.append(f"granite ({round(granite * 100)}%) cutting through the forested zones")
+    elif granite > 0.01:
+        stone_bits.append(f"granite outcrops ({round(granite * 100)}%)")
+    if limestone > 0.02:
+        stone_bits.append(f"limestone ({round(limestone * 100)}%) exposed across grassland and coast")
+    elif limestone > 0.005:
+        stone_bits.append(f"limestone ({round(limestone * 100)}%)")
+    if sandstone > 0.02:
+        stone_bits.append(f"sandstone ({round(sandstone * 100)}%) rising out of the desert")
+    elif sandstone > 0.005:
+        stone_bits.append(f"sandstone ({round(sandstone * 100)}%)")
 
-    # Ore exposure — usually tiny, but any visible presence is narrative-worthy.
-    ore = f.kind_pixels.get("ore", 0)
-    if ore > 10:
-        bits.append("with a few surface ore seams visible from the air")
+    if stone_bits:
+        if len(stone_bits) == 1:
+            bits.append("Visible stone is mostly " + stone_bits[0])
+        else:
+            bits.append("Visible stone is mixed: "
+                       + ", ".join(stone_bits[:-1])
+                       + f", and {stone_bits[-1]}")
+    else:
+        bits.append("Stone exposure is light; most rock sits under soil rather than breaking through")
 
-    if basalt > 0.02:
-        bits.append("basalt showing through shallow coastal water")
+    # Ore seams on the surface — a real player-facing tell.
+    ore_px = f.kind_pixels.get("ore", 0)
+    if ore_px > 0:
+        # Inspect which ore kinds are visible.
+        ore_names: list[str] = []
+        for idx_meta in f.palette_map.values():
+            if idx_meta.get("kind") != "ore":
+                continue
+            name = idx_meta.get("name", "")
+            if name == "IronOre":
+                ore_names.append("iron")
+            elif name == "Coal":
+                ore_names.append("coal")
+            elif name == "CopperOre":
+                ore_names.append("copper")
+            elif name == "GoldOre":
+                ore_names.append("gold")
+        ore_names = sorted(set(ore_names))
+        if ore_names:
+            bits.append("Seams of "
+                       + ("/".join(ore_names))
+                       + " break through to the surface — an early read on mining accessibility")
+        else:
+            bits.append("A few unidentified ore patches break through to the surface")
 
+    # Ocean-floor glimpses (shallow water or coastal basalt).
+    if basalt_frac > 0.01 or ocean_floor > 0.005:
+        bits.append(
+            "shallow coastal water shows seafloor through it in places"
+        )
+
+    # Tundra/dirt exposure implies frost damage; callers can read that as
+    # 'tough starting biome'.
+    if dirt_frac > 0.05:
+        bits.append(
+            f"bare earth occupies {round(dirt_frac * 100)}% of the land, usually a sign of tundra and high-elevation peaks"
+        )
+
+    # Crater-bearing worlds (disabled by default on Sirens).
     if f.crater_enabled:
-        bits.append("impact craters scar the terrain")
+        bits.append("and impact craters scar the terrain, visible as dark circular pits")
 
+    # Render: join into 1–2 sentences.
     if not bits:
         return ""
-    return ", ".join(bits).capitalize().rstrip(".") + "."
+    # First bit is a lead-in; subsequent bits are appended with commas/periods.
+    if len(bits) == 1:
+        return bits[0] + "."
+    return bits[0] + ". " + ". ".join(b[0].upper() + b[1:] for b in bits[1:]) + "."
 
 
 def narrate(features: Features) -> str:
-    lines = [
-        _shape_sentence(features),
-        _climate_sentence(features),
+    paras = [
+        _paragraph_shape(features),
+        _paragraph_biomes(features),
     ]
-    tail = _geology_sentence(features)
-    if tail:
-        lines.append(tail)
-    return "\n\n".join(lines)
+    geo = _paragraph_geology(features)
+    if geo:
+        paras.append(geo)
+    return "\n\n".join(paras)
 
 
 def _fetch_live_gif() -> bytes:
@@ -533,13 +894,21 @@ def run(
               f"{features.ice_cap_north} / {features.ice_cap_south}")
         print(f"seed:                   {features.seed}")
         print(f"crater enabled:         {features.crater_enabled}")
-        print("biome pixel breakdown (land fraction):")
+        print(f"coastline pixels:       {features.coastline_pixels}")
+        print(f"largest landmass ctr:   "
+              f"({features.largest_landmass_centroid[0]:+.2f}, "
+              f"{features.largest_landmass_centroid[1]:+.2f}) "
+              f"[-1..1, +x east, +y south]")
+        print("biome pixel breakdown (land fraction, centroid, spread):")
         for kind in sorted(features.kind_pixels, key=lambda k: -features.kind_pixels[k]):
             frac = features.land_kind_fraction(kind)
             if frac > 0 or kind == "water":
                 label = "water" if kind == "water" else kind
+                cx, cy = features.kind_centroids.get(kind, (0.0, 0.0))
+                sp = features.kind_spreads.get(kind, 0.0)
                 print(f"  {label:15s} {features.kind_pixels[kind]:>10d}  "
-                      f"{frac * 100:5.1f}% of land")
+                      f"{frac * 100:5.1f}% of land  "
+                      f"ctr=({cx:+.2f},{cy:+.2f}) spread={sp:.2f}")
         print()
         print("=== narrative ===")
     print(narrate(features))
