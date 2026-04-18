@@ -118,11 +118,19 @@ def _paragraph_shape(f: Features) -> str:
             "a continent; whatever land appears is scattered micro-islands."
         )
 
-    continent_words = {1: "A single continent", 2: "Two continents",
-                       3: "Three continents", 4: "Four continents",
-                       5: "Five continents"}
-    continent_word = continent_words.get(f.continent_count,
-                                          f"{f.continent_count} continents")
+    # Spell small integers out when they lead a sentence.
+    spelled = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+               6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten"}
+
+    def _count_word(n: int, singular: str, plural: str, *, capitalize: bool) -> str:
+        base = spelled.get(n, str(n))
+        noun = singular if n == 1 else plural
+        if n == 1 and base == "one":
+            base = "A single" if capitalize else "a single"
+            return f"{base} {singular}"
+        return f"{base[0].upper() + base[1:] if capitalize else base} {noun}"
+
+    continent_word = _count_word(f.continent_count, "continent", "continents", capitalize=True)
     continent_verb = "occupies" if f.continent_count == 1 else "occupy"
 
     largest_frac = f.largest_landmass_pixels / f.total_pixels if f.total_pixels else 0
@@ -132,9 +140,11 @@ def _paragraph_shape(f: Features) -> str:
     elif f.island_count == 1:
         island_clause = "plus one outlying island"
     elif f.island_count <= 4:
-        island_clause = f"flanked by {f.island_count} smaller islands"
+        island_word = spelled.get(f.island_count, str(f.island_count))
+        island_clause = f"flanked by {island_word} smaller islands"
     else:
-        island_clause = f"ringed by an archipelago of {f.island_count} islands"
+        island_word = spelled.get(f.island_count, str(f.island_count))
+        island_clause = f"ringed by an archipelago of {island_word} islands"
 
     lead = (
         f"{continent_word} {continent_verb} {land_pct}% of a {world_m}-meter "

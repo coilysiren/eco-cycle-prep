@@ -196,6 +196,79 @@ def _largest_component_centroid(
     return best_size, (best_cx, best_cy)
 
 
+def _bridge_narrow_water(
+    water_mask: list[list[bool]],
+    land_mask: list[list[bool]],
+    bridge_width: int,
+) -> list[list[bool]]:
+    """Return a land mask that also includes water pixels thin enough to
+    be rivers. A water pixel is "bridged" into land if, along either its
+    row or its column, there's land within `bridge_width` pixels in both
+    directions — i.e. the water body is thinner than `bridge_width` at
+    that crossing.
+
+    The preview renders all water at a single color, so without this
+    step, connected-component labeling on land pixels treats every
+    river as a break and fragments one continent into multiple pseudo-
+    islands.
+
+    Implementation is a 4-pass distance-to-nearest-land sweep plus a
+    final water pass, O(W*H) total. Bridges grid-aligned rivers
+    reliably; diagonal rivers of comparable width are still handled as
+    long as their horizontal or vertical extent stays under
+    `bridge_width` at some point."""
+    h = len(water_mask)
+    w = len(water_mask[0]) if h else 0
+    if not h or not w:
+        return [row[:] for row in land_mask]
+
+    INF = 10 ** 9
+    left_dist = [[INF] * w for _ in range(h)]
+    right_dist = [[INF] * w for _ in range(h)]
+    up_dist = [[INF] * w for _ in range(h)]
+    down_dist = [[INF] * w for _ in range(h)]
+
+    for y in range(h):
+        d = INF
+        row_land = land_mask[y]
+        row_left = left_dist[y]
+        for x in range(w):
+            d = 0 if row_land[x] else d + 1
+            row_left[x] = d
+        d = INF
+        row_right = right_dist[y]
+        for x in range(w - 1, -1, -1):
+            d = 0 if row_land[x] else d + 1
+            row_right[x] = d
+
+    for x in range(w):
+        d = INF
+        for y in range(h):
+            d = 0 if land_mask[y][x] else d + 1
+            up_dist[y][x] = d
+        d = INF
+        for y in range(h - 1, -1, -1):
+            d = 0 if land_mask[y][x] else d + 1
+            down_dist[y][x] = d
+
+    out = [row[:] for row in land_mask]
+    bw = bridge_width
+    for y in range(h):
+        row_w = water_mask[y]
+        row_out = out[y]
+        row_left = left_dist[y]
+        row_right = right_dist[y]
+        row_up = up_dist[y]
+        row_down = down_dist[y]
+        for x in range(w):
+            if not row_w[x]:
+                continue
+            if (row_left[x] <= bw and row_right[x] <= bw) or \
+               (row_up[x] <= bw and row_down[x] <= bw):
+                row_out[x] = True
+    return out
+
+
 def _coastline_count(
     water_mask: list[list[bool]], land_mask: list[list[bool]]
 ) -> int:
@@ -316,19 +389,40 @@ def extract_features(gif: bytes | Path, config: dict) -> Features:
     water_mask = [[palette_map[p]["kind"] == "water" for p in row] for row in pixel_rows]
     land_mask = [[palette_map[p]["kind"] in LAND_KINDS for p in row] for row in pixel_rows]
 
-    land_sizes = sorted(_components(land_mask), reverse=True)
-    largest_size, largest_centroid = _largest_component_centroid(land_mask)
-    open_ocean, lake_count, _ = _water_components(water_mask)
-    coastline_pixels = _coastline_count(water_mask, land_mask)
+    # Rivers render with the same water color as the ocean on the
+    # preview GIF, so naive land-connectivity would split any continent
+    # that has a river running through it into multiple "islands".
+    # Bridge water pixels narrower than BRIDGE_WIDTH into the land mask
+    # before labeling. RiverCellWidth in the worldgen config is 10; 14
+    # covers the typical pixel width of a river plus its ragged banks,
+    # while still leaving real straits intact.
+    BRIDGE_WIDTH = 14
+    land_connected = _bridge_narrow_water(water_mask, land_mask, BRIDGE_WIDTH)
+    # Water that didn't get bridged — ocean plus any proper interior
+    # lakes. Use this for lake/ocean classification so a river that
+    # links a lake to the sea no longer forces the lake to be counted
+    # as part of the ocean.
+    sea_water_mask = [
+        [water_mask[y][x] and not land_connected[y][x] for x in range(w)]
+        for y in range(h)
+    ]
+
+    land_sizes = sorted(_components(land_connected), reverse=True)
+    largest_size, largest_centroid = _largest_component_centroid(land_connected)
+    open_ocean, lake_count, _ = _water_components(sea_water_mask)
+    coastline_pixels = _coastline_count(sea_water_mask, land_connected)
     kind_centroids, kind_spreads = _kind_spatial_stats(pixel_rows, palette_map, w, h)
 
-    # Continent vs island split: anything ≥ 1% of total pixels is a continent.
+    # Continent vs island split: anything ≥ 1% of total pixels is a
+    # continent. On a 720-m world that's ~72 m × 72 m worth of land.
     total_pixels = w * h
     continent_threshold = max(400, total_pixels // 100)
     continent_count = sum(1 for s in land_sizes if s >= continent_threshold)
-    # Drop tiny "islands" that are almost certainly single stray pixels
-    # from quantization or one-pixel peninsulas.
-    min_island = max(4, total_pixels // 10_000)
+    # Drop anything that wouldn't read as a real island to a player —
+    # rocks, coastal outcrops, and single-chunk peninsulas that got
+    # surfaced by the river-bridging pass. 0.2% of the world (~32 m ×
+    # 32 m on a 720-m map) is the smallest size we'll call an island.
+    min_island = max(100, total_pixels // 500)
     island_count = sum(1 for s in land_sizes if min_island <= s < continent_threshold)
 
     ice_cap_n, ice_cap_s = _ice_caps(pixel_rows, palette_map, h, w)
