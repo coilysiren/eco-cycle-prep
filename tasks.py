@@ -22,6 +22,13 @@ def prep(ctx, cycle):
     prep_module.run(ctx, cycle=int(cycle))
 
 
+@task(help={"days": "How many days of suggestions-forum history to dump (default 60)"})
+def forum_dump(ctx, days=60):
+    from eco_map_generator import prep as prep_module
+
+    prep_module.run_forum_dump(ctx, since_days=int(days))
+
+
 @task(
     help={
         "cycle": "Current Eco cycle number",
