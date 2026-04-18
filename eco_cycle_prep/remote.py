@@ -107,13 +107,20 @@ def restart_server(ctx: Context):
 def sigterm_server(ctx: Context) -> None:
     """Kill the running eco-server process as user `kai`. No sudo needed.
     systemd's Restart=on-failure / RestartSec=60 policy brings the service
-    back up automatically after the process dies. Use this in scripted
-    flows where the caller is already streaming logs and waiting for a
-    post-restart signal (e.g. the preview GIF)."""
+    back up automatically after the process dies.
+
+    Uses `systemctl show` to look up the service's MainPID, then `kill`s
+    that PID directly. Avoids `pkill -f` against a pattern like `EcoServer`,
+    which self-matches: the ssh command line literally contains the pattern,
+    so the pkill would kill its own remote bash shell before (or instead
+    of) the target process. Result there was an ssh exit 255 and no
+    guarantee the server actually went down. Hit this foot-gun once; not
+    doing it again.
+    """
     ssh(
         ctx,
-        "pkill -TERM -f eco-server-start.sh || true; "
-        "pkill -TERM -f /EcoServer || true",
+        "pid=$(systemctl show -p MainPID --value eco-server); "
+        '[ -n "$pid" ] && [ "$pid" != "0" ] && kill -TERM "$pid" || true',
     )
 
 
