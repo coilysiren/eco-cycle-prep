@@ -200,10 +200,24 @@ def _read_world_size() -> str:
     return table.get(preset, preset)
 
 
-def _ad_config_bullets() -> list[str]:
-    # Currently pass-through; leaving a seam here so future iterations can
-    # pull some bullets programmatically from Difficulty/EcoSim/Balance.eco
-    # and reconcile with the curated list.
+PREP_DIR = Path(__file__).resolve().parent.parent / "rolls" / "_prep"
+
+
+def _ad_config_bullets(cycle: int | None = None) -> list[str]:
+    """Return the "### Configs:" bullets. If a per-cycle override file exists
+    at rolls/_prep/ad-configs-cycle-<cycle>.txt, use that (blank lines and
+    `#` comments stripped). Otherwise fall back to the static default."""
+    if cycle is not None:
+        override = PREP_DIR / f"ad-configs-cycle-{cycle}.txt"
+        if override.exists():
+            bullets: list[str] = []
+            for raw in override.read_text(encoding="utf-8").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                bullets.append(line)
+            if bullets:
+                return bullets
     return DEFAULT_CONFIG_BULLETS
 
 
@@ -230,7 +244,7 @@ def render(cycle: int, start_ts: int) -> str:
     lines.append("")
     lines.append("### Configs:")
     lines.append("")
-    for b in _ad_config_bullets():
+    for b in _ad_config_bullets(cycle):
         lines.append(f"- {b}")
     lines.append("")
     lines.append("### Content Mods:")
@@ -248,9 +262,6 @@ def render(cycle: int, start_ts: int) -> str:
     for c in CODE_MODS:
         lines.append(f"- {c.format(invite=invite)}")
     return "\n".join(lines) + "\n"
-
-
-PREP_DIR = Path(__file__).resolve().parent.parent / "rolls" / "_prep"
 
 
 def run(cycle: int, start_ts: int, save: bool = True) -> str:
@@ -274,7 +285,7 @@ def _detailed_description(cycle: int) -> str:
     # Plain-ASCII on purpose: Eco's in-game description panel does its own
     # markup; no need for typographic dashes. (Also matches Kai's "no em-dash
     # in drafted prose" style rule.)
-    configs = _ad_config_bullets()
+    configs = _ad_config_bullets(cycle)
     content = list_content_mods() + list_custom_mods()
     parts = [
         f"Cycle {cycle} - all time zones welcome!",
