@@ -111,7 +111,7 @@ Adult gamers on a small private Eco server. Highly engaged. They play multiple c
 
 ### Sending the message
 
-Channel ID is at SSM `/discord/channel/general-public`. Bot token is at `/sirens-echo/discord-bot-token` (distinct from `/eco/discord-bot-token`, which is DiscordLink's in-game bridge). Pull both from SSM each time. Do not hardcode.
+Channel ID is at SSM `/discord/channel/general-public`. For the bot token, **always** use `/sirens-echo/discord-bot-token` (posts as the `sirens-echo` bot). Never use `/eco/discord-bot-token` for manual messages. That one belongs to the `eco-sirens` bot, which is DiscordLink's in-game bridge and already auto-posts things like `Server Started` / `Server Stopped` embeds plus in-game and Discord chat bridging. Mixing the two bots in one channel creates confusion about which posts are automated vs. manual. Pull both values from SSM each time. Do not hardcode.
 
 ```sh
 # On Windows / Git Bash, prefix each aws call with MSYS_NO_PATHCONV=1. On Mac, drop it.
@@ -120,3 +120,22 @@ CHANNEL=$(MSYS_NO_PATHCONV=1 aws ssm get-parameter --name /discord/channel/gener
 BODY=$(python -c 'import json,sys; print(json.dumps({"content": sys.stdin.read()}))' <<< 'YOUR MESSAGE BODY HERE')
 curl -sS -H "Authorization: Bot $BOT_TOKEN" -H "Content-Type: application/json" -d "$BODY" "https://discord.com/api/v10/channels/$CHANNEL/messages"
 ```
+
+## Server restart notice (#eco-status)
+
+Before you restart the Eco server on kai-server, post a heads-up embed to `#eco-status`. DiscordLink already auto-posts `Server Stopped :x:` and `Server Started :white_check_mark:` embeds around the restart event itself, but those are retroactive. This one is the forward-looking "restart incoming" signal for players who are in-game or watching the channel.
+
+- Channel ID: SSM `/discord/channel/server-status-feed` (which already points at #eco-status; do not create a new param).
+- Bot token: SSM `/sirens-echo/discord-bot-token`.
+
+Match the DiscordLink format exactly: title-only embed, color `7506394`, two spaces between the title text and the emoji shortcode.
+
+```sh
+BOT_TOKEN=$(MSYS_NO_PATHCONV=1 aws ssm get-parameter --name /sirens-echo/discord-bot-token --with-decryption --query Parameter.Value --output text)
+CHANNEL=$(MSYS_NO_PATHCONV=1 aws ssm get-parameter --name /discord/channel/server-status-feed --with-decryption --query Parameter.Value --output text)
+curl -sS -H "Authorization: Bot $BOT_TOKEN" -H "Content-Type: application/json" \
+  -d '{"embeds":[{"title":"Server Restarting  :arrows_counterclockwise:","color":7506394}]}' \
+  "https://discord.com/api/v10/channels/$CHANNEL/messages"
+```
+
+If the restart has a specific reason worth surfacing (e.g. applying a mod fix, new cycle roll), add a one-line `description` field to the embed. Otherwise title-only, matching the spartan existing format. Post immediately before the restart command runs, not after.
