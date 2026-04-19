@@ -80,3 +80,43 @@ Two companion reference docs under `docs/`:
 
 Consult both before writing anything that reads world config, parses
 the preview image, or attempts to narrate a map in prose.
+
+## Patch notes on server deploys
+
+Whenever a task from this repo lands a change on the live Sirens Eco server, post a patch note to the `#general-public` Discord channel in the Sirens server. Players there play multiple cycles and read patch notes carefully. This repo is the orchestrator, so most cross-repo deploys flow through here.
+
+### When to post
+
+Triggers specific to eco-cycle-prep:
+
+- `inv go-live` / `inv go-private` (Network.eco flip, public/private + password state).
+- `inv roll` / `inv post-roll` (new world seed, preview GIF, server restart).
+- `inv mods-sync` (copies eco-mods and eco-mods-public onto the Eco install).
+- `inv mods-disable --names=...` (removes mods from the server's UserCode).
+- `inv ingame --sync` (writes in-game Name / DetailedDescription into Network.eco).
+- Any direct ssh edit on kai-server to `/home/kai/Steam/steamapps/common/EcoServer/`.
+
+A plain commit to `main` in this repo is not a deploy trigger by itself (tasks / helpers / wording tweaks that never run against prod don't need a post). Post when the invoked task actually reaches the server. Post in real time, in the same turn as the deploy. Do not describe the post as a backfill, delayed notice, or after-the-fact summary. Write as if the change just landed.
+
+### Audience and tone
+
+Adult gamers on a small private Eco server. Highly engaged. They play multiple cycles and read patch notes carefully.
+
+- Assume they know the game. Use skill names, tier numbers, recipe names, and mechanics directly. Do not re-explain what a "specialty" is.
+- Patch-notes voice: mechanical and specific. Numbers over adjectives. "Carpentry now costs 2 stars (tier 2) + 1 per prior specialty" beats "specialty costs are more realistic now."
+- No marketing hype ("we're excited to", "enjoy!", "huge update!"). No condescension ("don't worry if this sounds complicated.").
+- Describe the before / after when it's a fix. Describe the new capability when it's a feature.
+- No em-dashes. Use periods, commas, parens, or " - " for mid-sentence sidebars. Same rule Kai applies elsewhere.
+- Under ~1500 characters so it fits in a single Discord message. Sign off with the repo + task or config touched in brackets, e.g. `[eco-cycle-prep / inv roll]`.
+
+### Sending the message
+
+Channel ID is at SSM `/discord/channel/general-public`. Bot token is at `/sirens-echo/discord-bot-token` (distinct from `/eco/discord-bot-token`, which is DiscordLink's in-game bridge). Pull both from SSM each time. Do not hardcode.
+
+```sh
+# On Windows / Git Bash, prefix each aws call with MSYS_NO_PATHCONV=1. On Mac, drop it.
+BOT_TOKEN=$(MSYS_NO_PATHCONV=1 aws ssm get-parameter --name /sirens-echo/discord-bot-token --with-decryption --query Parameter.Value --output text)
+CHANNEL=$(MSYS_NO_PATHCONV=1 aws ssm get-parameter --name /discord/channel/general-public --with-decryption --query Parameter.Value --output text)
+BODY=$(python -c 'import json,sys; print(json.dumps({"content": sys.stdin.read()}))' <<< 'YOUR MESSAGE BODY HERE')
+curl -sS -H "Authorization: Bot $BOT_TOKEN" -H "Content-Type: application/json" -d "$BODY" "https://discord.com/api/v10/channels/$CHANNEL/messages"
+```
