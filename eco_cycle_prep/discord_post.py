@@ -77,6 +77,41 @@ def restart_notice(reason: Optional[str] = None) -> dict:
     )
 
 
+def next_8am_pt() -> int:
+    """Unix timestamp for the upcoming 8:00 AM in America/Los_Angeles.
+
+    Returns today's 8am PT if the current local time is before 8am,
+    otherwise tomorrow's 8am PT. Uses zoneinfo so daylight-savings is handled
+    correctly (tzdata is declared as a Windows dep in pyproject.toml).
+    """
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
+    pt = ZoneInfo("America/Los_Angeles")
+    now = datetime.now(pt)
+    today_8 = now.replace(hour=8, minute=0, second=0, microsecond=0)
+    target = today_8 if now < today_8 else today_8 + timedelta(days=1)
+    return int(target.timestamp())
+
+
+def restart_schedule_footer(unix_ts: Optional[int] = None) -> str:
+    """Standard footer line for patch notes about changes that need a restart.
+
+    Renders with Discord's native <t:...:F> and <t:...:R> tags so every reader
+    sees the time in their own locale alongside a live relative ("in an hour",
+    "in 4 hours"). Pass an explicit `unix_ts` to override the default of the
+    next 8:00 AM PT.
+
+    Returns a single line; callers paste it as its own paragraph above the
+    `[repo / component]` sign-off.
+    """
+    ts = unix_ts if unix_ts is not None else next_8am_pt()
+    return (
+        f"These changes will go live at 8am PT "
+        f"(<t:{ts}:F>, <t:{ts}:R>) unless players request an earlier restart."
+    )
+
+
 # Emoji for the ops-notice embed. Distinct from DiscordLink's
 # :white_check_mark: / :x: so ops traces are visually separable from the
 # auto-feed while still using the same title-only embed format.

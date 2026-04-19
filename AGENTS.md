@@ -126,6 +126,20 @@ Quick-reference rules (full detail in the voice guide):
 - Under ~1500 characters so it fits in a single Discord message.
 - Sign off with the repo + task or config touched in brackets, e.g. `[eco-cycle-prep / inv roll]`.
 
+### Restart-schedule footer (changes that need a restart)
+
+The Sirens server restarts automatically at 08:00 America/Los_Angeles. Any patch note describing a change that needs a restart to take effect (nearly all mod-code and most config changes) ends with a footer line naming that restart time in Discord's native timestamp syntax, so every reader sees it rendered in their own locale. Use the helper:
+
+```py
+from eco_cycle_prep.discord_post import restart_schedule_footer
+print(restart_schedule_footer())
+# "These changes will go live at 8am PT (<t:TS:F>, <t:TS:R>) unless players request an earlier restart."
+```
+
+`restart_schedule_footer()` defaults to the next 08:00 PT and handles DST via `zoneinfo`. Pass an explicit `unix_ts` if the restart is scheduled outside the default cadence. The footer is a single paragraph, placed above the `[repo / component]` sign-off.
+
+Changes that take effect immediately without a restart (invoke-only tooling, docs, config that's hot-reloaded) do not get the footer; the footer exists to set expectations for "why can I still see the old behavior?"
+
 ### Link back to the commit (public repos only)
 
 When a patch note describes a change whose source is in a **public** sibling repo (currently only [`eco-mods-public`](https://github.com/coilysiren/eco-mods-public)), include a link to the relevant commit or compare view in the message body, above the sign-off. Format:
