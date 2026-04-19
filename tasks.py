@@ -238,6 +238,21 @@ def restart_notice(ctx, reason=None):
     print(f"posted id={r['id']} channel_id={r['channel_id']}")
 
 
+@task(help={"command": "Literal invoke command text (with secrets redacted)."})
+def ops_notice(ctx, command):
+    """Post the literal text of an ops command to #eco-status before running.
+
+    Primarily intended to be called from other invoke tasks as their first
+    step, but exposed here for manual use too. See `eco_cycle_prep.discord_post.ops_notice`
+    for the full contract, especially the caller's responsibility to redact
+    secrets before passing them in.
+    """
+    from eco_cycle_prep import discord_post as dp
+
+    r = dp.ops_notice(command)
+    print(f"posted id={r['id']} channel_id={r['channel_id']}")
+
+
 @task(help={"restart": "Restart the server after the flip (default on)"})
 def go_live(ctx, restart=True):
     """Flip the running Eco server to public + no-password on kai-server.

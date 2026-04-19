@@ -75,3 +75,35 @@ def restart_notice(reason: Optional[str] = None) -> dict:
         title="Server Restarting  :arrows_counterclockwise:",
         description=reason,
     )
+
+
+# Emoji for the ops-notice embed. Distinct from DiscordLink's
+# :white_check_mark: / :x: so ops traces are visually separable from the
+# auto-feed while still using the same title-only embed format.
+OPS_NOTICE_EMOJI = ":arrow_forward:"
+
+
+def ops_notice(command_text: str) -> dict:
+    """Post the literal invoke-command text to #eco-status before running it.
+
+    Use this as the first step of any task that modifies real server state.
+    The purpose is an audit trail: the channel log should show what was run
+    and when, in a format that sits cleanly alongside DiscordLink's
+    Server Started / Server Stopped embeds.
+
+    The format mirrors DiscordLink exactly: title-only embed, matching color,
+    two-space spacing before the emoji shortcode. The command string is the
+    title, verbatim.
+
+    The caller is responsible for redacting secrets (tokens, passwords, raw
+    SSM values) from `command_text` before passing it in. The string is
+    posted as-is. Common pattern: replace a sensitive value with `***`.
+
+    Discord embed titles cap at 256 characters. For commands approaching
+    that length, truncate or split into multiple notices rather than
+    letting the API reject the post.
+    """
+    if len(command_text) > 240:
+        command_text = command_text[:237] + "..."
+    title = f"{command_text}  {OPS_NOTICE_EMOJI}"
+    return post_embed("eco-status", title=title, description=None)

@@ -142,3 +142,25 @@ Use the full URL so Discord renders a preview. If the change spans more than one
 Before restarting the Eco server on kai-server, post a heads-up via `inv restart-notice`. The embed matches DiscordLink's existing `Server Started` / `Server Stopped` format (title-only, color `7506394`, two-space emoji spacing), so it slots visually into the auto-feed. Pass `--reason="<one-liner>"` when the restart has a specific cause worth surfacing; otherwise leave it title-only.
 
 Post immediately before the restart command, not after. The feed order should read: our manual "restarting" embed, then DiscordLink's auto `Server Stopped`, then `Server Started`.
+
+### Ops-command trace (#eco-status)
+
+Any invoke task in this repo that modifies real server state (mutates `/home/kai/Steam/steamapps/common/EcoServer/`, edits `Network.eco` on disk, issues an Eco restart, pushes new mod or config bits to kai-server, or similar) must post the literal text of the invoke command to `#eco-status` **before** running its side-effects. This is the audit trail: the channel log should show "here's what was about to run" in chronological order alongside DiscordLink's auto Server Started / Stopped embeds, so after-the-fact debugging has a single timeline to follow.
+
+**How to post it.** Call `eco_cycle_prep.discord_post.ops_notice(command_text)` as the first line of the task's body (or via the `inv ops-notice --command="..."` task for manual use). The helper builds a title-only embed that mirrors the DiscordLink format exactly:
+
+- Title is the command text with two spaces before a trailing emoji shortcode (`:arrow_forward:`).
+- Color is `7506394` (same as the Start / Stop embeds), so ops posts sit visually in the same family.
+- No description, no fields. The command is the whole message.
+
+**Format the command text naturally.** Include the subcommand, any flags worth seeing, and any values that give useful context ("`--cycle=13`", "`--mod=SkillsRequirements`"). Drop flags whose value is irrelevant for reading ("`--restart=True`" is noise if it's the default).
+
+**Redact sensitive data at the call site.** The helper posts the string verbatim. If a task's invocation includes a secret (a password, an SSM value pulled into the command line, a token), the caller replaces it with `***` in the string passed to `ops_notice`. Examples:
+
+- `inv go-live --restart=true` — fine as-is.
+- `inv mods-sync` — fine as-is.
+- `inv some-future-task --token=***` — not `--token=<actual secret>`.
+
+**Rule for newly added ops commands.** Any task added to `tasks.py` that changes real server state ships with an `ops_notice(...)` call as its first concrete step. This is a hard requirement, not a convention: if the AGENTS.md-reviewer-agent finds a new ops task without an `ops_notice`, that's a bug to fix before merging. Reading the channel back should show every ops action that hit the server.
+
+**Existing commands.** Not retroactively required. Backfill as you touch them; don't block other work to sweep the whole file.
