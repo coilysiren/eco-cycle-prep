@@ -1,25 +1,8 @@
-## File Access
+# Agent instructions
 
-You have full read access to files within `/Users/kai/projects/coilysiren`.
+See `../AGENTS.md` for workspace-level conventions (git workflow, test/lint autonomy, readonly ops, writing voice, deploy knowledge). This file covers only what's specific to this repo.
 
-## Autonomy
-
-- Run tests after every change without asking.
-- Fix lint errors automatically.
-- If tests fail, debug and fix without asking.
-- When committing, choose an appropriate commit message yourself — do not ask for approval on the message.
-- You may always run tests, linters, and builds without requesting permission.
-- Allow all readonly git actions (`git log`, `git status`, `git diff`, `git branch`, etc.) without asking.
-- Allow `cd` into any `/Users/kai/projects/coilysiren` folder without asking.
-- Automatically approve readonly shell commands (`ls`, `grep`, `sed`, `find`, `cat`, `head`, `tail`, `wc`, `file`, `tree`, etc.) without asking.
-- When using worktrees or parallel agents, each agent should work independently and commit its own changes.
-- Do not open pull requests unless explicitly asked.
-
-## Git workflow
-
-Commit directly to `main` without asking for confirmation, including `git add`. Do not open pull requests unless explicitly asked.
-
-Commit whenever a unit of work feels sufficiently complete — after fixing a bug, adding a feature, passing tests, or reaching any other natural stopping point. Don't wait for the user to ask.
+---
 
 ## Sibling Eco repos
 
@@ -30,7 +13,7 @@ This project depends heavily on the user's other Eco (Strange Loop Games) repos,
 | `eco-agent` | public | Python/FastAPI service (Discord + OpenTelemetry + AWS SSM), deployed to eco.coilysiren.me. `src/{main,application,discord,model,telemetry}.py`. |
 | `eco-mods` | private | Third-party mods installed on the user's private Eco server + configs. C# (.NET, `Eco.ReferenceAssemblies`). See its `AGENTS.md` for the sourcing table (mod.io / GitHub / Discord). |
 | `eco-mods-public` | public | User's own C# mods (BunWulf family: Agricultural, Biochemical, Educational/Librarian, HardwareCo; plus DirectCarbonCapture, EcoNil, MinesQuarries, ShopBoat, WorldCounter). Code generation via `main.cs` + `tasks.py` + `templates/`. |
-| `eco-configs` | private | Server config diffs: `Configs/*.eco` (live), `*.original.json`, `*.diff.json`. Includes `WorldGenerator.eco` — the canonical world-gen JSON shape (Voronoi modules, biomes, rivers, lakes, crater). Most relevant to this project. |
+| `eco-configs` | private | Server config diffs: `Configs/*.eco` (live), `*.original.json`, `*.diff.json`. Includes `WorldGenerator.eco` - the canonical world-gen JSON shape (Voronoi modules, biomes, rivers, lakes, crater). Most relevant to this project. |
 | `eco-mods-assets` | private | Unity project (AssetBundles, Assets, Builds, Packages, ProjectSettings). Produces asset bundles consumed by mods. |
 | `eco-mods-assets-embeded` | private | Embedded Unity assets (Icons, Prefabs, Scenes). |
 | `eco-GlobalPlanetaryDefense` | public | Standalone mod (Deepflame's GPD) overhauling laser/computer-lab endgame. |
@@ -46,14 +29,14 @@ Mod sourcing for `eco-mods`: `MODIO_API_KEY` env var; mod.io game ID is 6.
 
 Reach for these before guessing at Eco types, config shapes, or modding conventions.
 
-- **Wiki** — https://wiki.play.eco/en/ (start pages: `/en/Modding`, `/en/Mod_Development`, `/en/Ecopedia_Modding`).
-- **ModKit docs (auto-generated, tracks latest Eco)** — https://docs.play.eco/. Split into:
+- **Wiki** - https://wiki.play.eco/en/ (start pages: `/en/Modding`, `/en/Mod_Development`, `/en/Ecopedia_Modding`).
+- **ModKit docs (auto-generated, tracks latest Eco)** - https://docs.play.eco/. Split into:
   - Client API (Unity3D ModKit package)
   - Server API (server-side ModKit DLLs)
-  - Remote API (web server, REST-style) — e.g. https://docs.play.eco/api/remote/web/ecogameapi.html
-- **EcoModKit reference repo** — https://github.com/StrangeLoopGames/EcoModKit (example mods + the ModKit Unity package).
-- **SLG blog on modding** — https://strangeloopgames.com/how-mods-work-in-eco/.
-- **mod.io** — game ID `6`. REST API: `GET https://api.mod.io/v1/games/6/mods?api_key=$MODIO_API_KEY&_q=<search>`.
+  - Remote API (web server, REST-style) - e.g. https://docs.play.eco/api/remote/web/ecogameapi.html
+- **EcoModKit reference repo** - https://github.com/StrangeLoopGames/EcoModKit (example mods + the ModKit Unity package).
+- **SLG blog on modding** - https://strangeloopgames.com/how-mods-work-in-eco/.
+- **mod.io** - game ID `6`. REST API: `GET https://api.mod.io/v1/games/6/mods?api_key=$MODIO_API_KEY&_q=<search>`.
 
 ### DiscordLink
 
@@ -67,13 +50,13 @@ Bridges Eco server chat/state with Discord. Used by this project.
 
 Two companion reference docs under `docs/`:
 
-- [`docs/worldgen.md`](docs/worldgen.md) — the map-generation
+- [`docs/worldgen.md`](docs/worldgen.md) - the map-generation
   reference: `WorldGenerator.eco` config schema, the biome catalog
   with colors and block palettes, `WorldPreview.gif` format
   (single-frame 8-bit indexed; pixel size is `WorldWidth × 10`, so
   720×720 at Sirens' current 72-chunk sizing), sibling `/Layers/`
   GIFs, and what's inferable from config-only vs config+GIF.
-- [`docs/biomes.md`](docs/biomes.md) — per-biome plants, animals,
+- [`docs/biomes.md`](docs/biomes.md) - per-biome plants, animals,
   and minerals. Feeds `inv narrate` with the flavor color that lets
   a map description say "oak and elk on granite" instead of just
   "warm forest." Scope is vanilla Eco plus the Sirens mod stack.
