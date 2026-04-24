@@ -57,7 +57,7 @@ Two companion reference docs under `docs/`:
   720×720 at Sirens' current 72-chunk sizing), sibling `/Layers/`
   GIFs, and what's inferable from config-only vs config+GIF.
 - [`docs/biomes.md`](docs/biomes.md) - per-biome plants, animals,
-  and minerals. Feeds `inv narrate` with the flavor color that lets
+  and minerals. Feeds `coily narrate` with the flavor color that lets
   a map description say "oak and elk on granite" instead of just
   "warm forest." Scope is vanilla Eco plus the Sirens mod stack.
 
@@ -68,31 +68,39 @@ the preview image, or attempts to narrate a map in prose.
 
 The `../Eco/` sibling directory contains vendor-provided game source. Use it as read-only background for type signatures, API shapes, and reproducing vanilla formulas, but do not paste, quote, or link snippets of it in anything that leaves this repo: commit messages, PR descriptions, public READMEs, issues, Discord posts, or other published docs. Describe game behavior in your own words and use fresh examples rather than lifting source prose. The same rule applies to any voice guide or Discord draft: describe patterns and use fabricated examples, do not quote.
 
+## Dev entry point: coily
+
+`coily` (sibling repo, `../coily`) is the canonical entry point for every dev verb in this repo. The invoke tasks in `tasks.py` are the implementation; operators (human or agent) type `coily <verb>`, not `inv <task>`. The mapping is 1:1 and declared in [`.coily/coily.yaml`](.coily/coily.yaml).
+
+Running `coily --list` from anywhere inside this checkout shows all available verbs with descriptions. Flags forward verbatim, e.g. `coily prep --cycle=13`. Shell metacharacters are rejected at the coily boundary before they reach invoke.
+
+The pyinvoke tasks still exist and still work (`uv run inv <task>`), but prose in this repo and in drafted messages references the coily form. The only reason to invoke `inv` directly is when coily itself is unavailable (e.g. on a host where it isn't installed).
+
 ## Server communications (canonical)
 
-This repo owns all manual Discord messaging to the Sirens Eco server. Sibling repos (eco-mods, eco-mods-public, eco-configs) point here rather than reimplementing locally. The Python helpers live in [`eco_cycle_prep/discord_post.py`](eco_cycle_prep/discord_post.py); the user-facing entry points are invoke tasks.
+This repo owns all manual Discord messaging to the Sirens Eco server. Sibling repos (eco-mods, eco-mods-public, eco-configs) point here rather than reimplementing locally. The Python helpers live in [`eco_cycle_prep/discord_post.py`](eco_cycle_prep/discord_post.py); the user-facing entry points are coily verbs.
 
-### Invoke tasks
+### Commands
 
 ```
-inv discord-post --channel=<alias> --from-file=<path>     # send a plain-content message
-inv discord-post --channel=<alias> --body="<inline body>"
-inv restart-notice [--reason="<short reason>"]            # pre-restart heads-up embed to #eco-status
+coily discord-post --channel=<alias> --from-file=<path>     # send a plain-content message
+coily discord-post --channel=<alias> --body="<inline body>"
+coily restart-notice [--reason="<short reason>"]            # pre-restart heads-up embed to #eco-status
 ```
 
 Known channel aliases live in `discord_post.CHANNEL_ALIASES`. Currently: `general-public`, `eco-status`. Add new aliases there, not at call sites.
 
-Both tasks post through the `sirens-echo` bot (SSM `/sirens-echo/discord-bot-token`). The `eco-sirens` bot (`/eco/discord-bot-token`) belongs to DiscordLink and auto-posts `Server Started` / `Server Stopped` embeds plus the in-game chat bridge; it is intentionally never used for manual messaging, so that a message's bot author unambiguously signals whether it was automated or authored here.
+Both verbs post through the `sirens-echo` bot (SSM `/sirens-echo/discord-bot-token`). The `eco-sirens` bot (`/eco/discord-bot-token`) belongs to DiscordLink and auto-posts `Server Started` / `Server Stopped` embeds plus the in-game chat bridge; it is intentionally never used for manual messaging, so that a message's bot author unambiguously signals whether it was automated or authored here.
 
 ### When to post to #general-public
 
 Triggers specific to eco-cycle-prep:
 
-- `inv go-live` / `inv go-private` (Network.eco flip, public/private + password state).
-- `inv roll` / `inv post-roll` (new world seed, preview GIF, server restart).
-- `inv mods-sync` (copies eco-mods and eco-mods-public onto the Eco install).
-- `inv mods-disable --names=...` (removes mods from the server's UserCode).
-- `inv ingame --sync` (writes in-game Name / DetailedDescription into Network.eco).
+- `coily go-live` / `coily go-private` (Network.eco flip, public/private + password state).
+- `coily roll` / `coily post-roll` (new world seed, preview GIF, server restart).
+- `coily mods-sync` (copies eco-mods and eco-mods-public onto the Eco install).
+- `coily mods-disable --names=...` (removes mods from the server's UserCode).
+- `coily ingame --sync` (writes in-game Name / DetailedDescription into Network.eco).
 - Any direct ssh edit on kai-server to `/home/kai/Steam/steamapps/common/EcoServer/`.
 
 A plain commit to `main` in this repo is not a deploy trigger by itself (tasks, helpers, and wording tweaks that never run against prod don't need a post). Post when the invoked task actually reaches the server, in the same turn as the deploy. Do not describe the post as a backfill, delayed notice, or after-the-fact summary. Write as if the change just landed.
@@ -107,7 +115,7 @@ Quick-reference rules (full detail in the voice guide):
 - No marketing hype. No condescension. No exclamation points in body copy. No em-dashes (use periods, commas, parens, or " - " for mid-sentence sidebars).
 - Describe the before / after on a fix. Describe the new capability on a feature.
 - Under ~1500 characters so it fits in a single Discord message.
-- Sign off with the repo + task or config touched in brackets, e.g. `[eco-cycle-prep / inv roll]`.
+- Sign off with the repo + verb or config touched in brackets, e.g. `[eco-cycle-prep / coily roll]`.
 
 ### Restart-schedule footer (changes that need a restart)
 
@@ -136,7 +144,7 @@ Use the full URL so Discord renders a preview. If the change spans more than one
 
 ### Server restart notice (#eco-status)
 
-Before restarting the Eco server on kai-server, post a heads-up via `inv restart-notice`. The embed matches DiscordLink's existing `Server Started` / `Server Stopped` format (title-only, color `7506394`, two-space emoji spacing), so it slots visually into the auto-feed. Pass `--reason="<one-liner>"` when the restart has a specific cause worth surfacing; otherwise leave it title-only.
+Before restarting the Eco server on kai-server, post a heads-up via `coily restart-notice`. The embed matches DiscordLink's existing `Server Started` / `Server Stopped` format (title-only, color `7506394`, two-space emoji spacing), so it slots visually into the auto-feed. Pass `--reason="<one-liner>"` when the restart has a specific cause worth surfacing; otherwise leave it title-only.
 
 Post immediately before the restart command, not after. The feed order should read: our manual "restarting" embed, then DiscordLink's auto `Server Stopped`, then `Server Started`.
 
@@ -144,7 +152,7 @@ Post immediately before the restart command, not after. The feed order should re
 
 Any invoke task in this repo that modifies real server state (mutates `/home/kai/Steam/steamapps/common/EcoServer/`, edits `Network.eco` on disk, issues an Eco restart, pushes new mod or config bits to kai-server, or similar) must post the literal text of the invoke command to `#eco-status` **before** running its side-effects. This is the audit trail: the channel log should show "here's what was about to run" in chronological order alongside DiscordLink's auto Server Started / Stopped embeds, so after-the-fact debugging has a single timeline to follow.
 
-**How to post it.** Call `eco_cycle_prep.discord_post.ops_notice(command_text)` as the first line of the task's body (or via the `inv ops-notice --command="..."` task for manual use). The helper builds a title-only embed that mirrors the DiscordLink format exactly:
+**How to post it.** Call `eco_cycle_prep.discord_post.ops_notice(command_text)` as the first line of the task's body (or via the `coily ops-notice --command="..."` verb for manual use). The helper builds a title-only embed that mirrors the DiscordLink format exactly:
 
 - Title is the command text with two spaces before a trailing emoji shortcode (`:arrow_forward:`).
 - Color is `7506394` (same as the Start / Stop embeds), so ops posts sit visually in the same family.
@@ -154,10 +162,10 @@ Any invoke task in this repo that modifies real server state (mutates `/home/kai
 
 **Redact sensitive data at the call site.** The helper posts the string verbatim. If a task's invocation includes a secret (a password, an SSM value pulled into the command line, a token), the caller replaces it with `***` in the string passed to `ops_notice`. Examples:
 
-- `inv go-live --restart=true` — fine as-is.
-- `inv mods-sync` — fine as-is.
-- `inv some-future-task --token=***` — not `--token=<actual secret>`.
+- `coily go-live --restart=true` — fine as-is.
+- `coily mods-sync` — fine as-is.
+- `coily some-future-verb --token=***` — not `--token=<actual secret>`.
 
-**Rule for newly added ops commands.** Any task added to `tasks.py` that changes real server state ships with an `ops_notice(...)` call as its first concrete step. This is a hard requirement, not a convention: if the AGENTS.md-reviewer-agent finds a new ops task without an `ops_notice`, that's a bug to fix before merging. Reading the channel back should show every ops action that hit the server.
+**Rule for newly added ops commands.** Any task added to `tasks.py` that changes real server state ships with an `ops_notice(...)` call as its first concrete step, and gets a matching entry in `.coily/coily.yaml` so it's reachable as a `coily <verb>`. Both are hard requirements, not conventions: a new ops task without an `ops_notice` or without a coily passthrough is a bug to fix before merging. Reading the channel back should show every ops action that hit the server.
 
 **Existing commands.** Not retroactively required. Backfill as you touch them; don't block other work to sweep the whole file.

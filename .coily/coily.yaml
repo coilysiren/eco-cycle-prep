@@ -1,0 +1,72 @@
+# Per-repo command allowlist for eco-cycle-prep. Coily is the canonical entry
+# point for dev verbs here; each command below delegates to the underlying
+# pyinvoke task in ../tasks.py. Invoke itself is the implementation detail -
+# operators (human or agent) type `coily <verb>`, not `inv <task>`.
+#
+# Invoke task flags forward verbatim through coily's user-extras mechanism.
+# All extras pass policy.ValidateArg; shell metacharacters (`$;&|<>(){}\`
+# plus \n \r \t) are rejected at invocation time.
+#
+# Names follow coily's [a-z0-9-] rule and mirror the pyinvoke CLI shape
+# (pyinvoke auto-converts underscores in def names to dashes).
+
+commands:
+  # --- cycle prep ---
+  prep:
+    run: uv run inv prep
+    description: Weekly cycle prep - steamcmd update, sibling git pulls, Discord digest. --cycle=N required.
+  brief:
+    run: uv run inv brief
+    description: Full cycle-N channel pull plus suggestions/forum lookback. --cycle=N required, --days=D optional.
+  forum-dump:
+    run: uv run inv forum-dump
+    description: Standalone dump of the suggestions forum. --days=D optional (default 60).
+
+  # --- map rolls ---
+  roll:
+    run: uv run inv roll
+    description: Roll one worldgen seed end-to-end and post the preview. --cycle=N required, --seed=S optional.
+  post-roll:
+    run: uv run inv post-roll
+    description: Replay the Discord post for an already-captured roll preview. --cycle=N required, --roll=R optional.
+  narrate:
+    run: uv run inv narrate
+    description: Describe a generated map in prose. --gif, --config, --features all optional.
+
+  # --- mod management ---
+  mods-sync:
+    run: uv run inv mods-sync
+    description: Clone eco-mods + eco-mods-public on kai-server and copy to the Eco install. Lockdown-gated.
+  mods-disable:
+    run: uv run inv mods-disable
+    description: Remove mod folders from the live server (ephemeral). --names=A,B,C required.
+
+  # --- announcements ---
+  ad:
+    run: uv run inv ad
+    description: Emit the cross-server ad markdown. --cycle=N and --start-ts=UNIX required.
+  sirens-post:
+    run: uv run inv sirens-post
+    description: "Emit the Sirens #eco-configs channel kickoff post. --cycle=N and --start-ts=UNIX required."
+  ingame:
+    run: uv run inv ingame
+    description: Render in-game Name + DetailedDescription. --cycle=N required, --sync optional to write back.
+
+  # --- discord plumbing ---
+  discord-post:
+    run: uv run inv discord-post
+    description: Post a one-off content message via the sirens-echo bot. --channel= plus one of --body= or --from-file=.
+  restart-notice:
+    run: uv run inv restart-notice
+    description: "Pre-restart heads-up embed to #eco-status. --reason= optional."
+  ops-notice:
+    run: uv run inv ops-notice
+    description: "Post the literal text of an ops command to #eco-status before running. --command= required."
+
+  # --- go-live / go-private ---
+  go-live:
+    run: uv run inv go-live
+    description: Flip the running server to public + no-password on kai-server. --restart=true default.
+  go-private:
+    run: uv run inv go-private
+    description: Inverse of go-live - re-privatize the running server. --restart=true default.

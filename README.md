@@ -37,28 +37,33 @@ generated planet and stop an incoming meteor, while an ecological
 simulation tracks the damage their extraction, pollution, and land use do
 to the biosphere. Kai's server, "Eco via Sirens", runs ~2-month cycles.
 
-## Tasks
+## Commands
 
-- `inv prep --cycle N` — weekly prep: steamcmd update, git pulls on
+All dev verbs run through [`coily`](https://github.com/coilysiren/coily),
+declared in [`.coily/coily.yaml`](.coily/coily.yaml). Pyinvoke is the
+implementation layer; coily is the operator entry point. Run `coily
+--list` from inside this checkout to see every verb with its description.
+
+- `coily prep --cycle=N` — weekly prep: steamcmd update, git pulls on
   eco-configs + infrastructure, Discord digest of recent community input.
-- `inv brief --cycle N --days D` — cycle-13-style brief: full cycle-N
+- `coily brief --cycle=N --days=D` — cycle-13-style brief: full cycle-N
   channel history + last D days of suggestions + suggestions-forum.
-- `inv forum-dump --days D` — standalone dump of the suggestions forum.
-- `inv roll --cycle N [--seed S]` — roll a single worldgen seed end-to-end:
+- `coily forum-dump --days=D` — standalone dump of the suggestions forum.
+- `coily roll --cycle=N [--seed=S]` — roll a single worldgen seed end-to-end:
   set + push to eco-configs, sync configs + reset storage on kai-server,
   wait for the preview to stabilize (streams `journalctl -u eco-server`
   while it boots), post the preview GIF to the current cycle channel.
   One roll per invocation; invoke again to roll the next seed.
-- `inv mods-sync` — clone eco-mods + eco-mods-public on kai-server and
+- `coily mods-sync` — clone eco-mods + eco-mods-public on kai-server and
   copy them into the Eco install. Lockdown-gated (Network.eco in git
   must carry the private/password-protected values).
-- `inv mods-disable --names=A,B,C` — rm mod folders from the server
+- `coily mods-disable --names=A,B,C` — rm mod folders from the server
   (ephemeral; prefer deleting from the eco-mods source repo).
-- `inv ad --cycle N --start-ts UNIX_TS` — emit the main Eco Discord ad
+- `coily ad --cycle=N --start-ts=UNIX_TS` — emit the main Eco Discord ad
   and sync Network.eco's DetailedDescription.
-- `inv eco-configs-post --cycle N` — emit the Sirens #eco-configs
-  channel post (longer, mod.io links).
-- `inv go-live` — cycle launch: `copy-configs` to kai-server, then edit
+- `coily sirens-post --cycle=N --start-ts=UNIX_TS` — emit the Sirens
+  #eco-configs channel post (longer, mod.io links).
+- `coily go-live` — cycle launch: `copy-configs` to kai-server, then edit
   `Network.eco` ON THE SERVER to set PublicServer=true + Password="",
   then restart. The git-tracked Network.eco always stays in its locked
   private state; going public is a runtime-only flip.

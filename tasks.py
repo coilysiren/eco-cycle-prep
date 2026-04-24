@@ -1,14 +1,19 @@
 """Entry points for the Eco cycle-prep workflow.
 
-Weekly prep:         inv prep --cycle <N>
-Discord intel:       inv brief --cycle <N> [--days <D>]  |  inv forum-dump [--days <D>]
-Map rolls (repeat):  inv roll --cycle <N> [--seed <S>]   # one seed per invocation
-Re-post a roll:      inv post-roll --cycle <N> [--roll <R>]  # replay discord post only
-Narrate a map:       inv narrate [--gif PATH] [--config PATH] [--features]
-Mod management:      inv mods-sync  |  inv mods-disable --names=A,B,C
-Announcements:       inv ad --cycle <N> --start-ts <unix>  |  inv eco-configs-post --cycle <N>
-Go live:             inv go-live   # runtime flip on kai-server; git Network.eco stays private
-Go private:          inv go-private  # inverse: re-privatize the server mid-cycle
+These pyinvoke tasks are the implementation layer. The canonical operator
+entry point is `coily <verb>` (see .coily/coily.yaml); everything below is
+reachable both ways but docs, commit messages, and drafted patch notes
+reference the coily form.
+
+Weekly prep:         coily prep --cycle=<N>
+Discord intel:       coily brief --cycle=<N> [--days=<D>]  |  coily forum-dump [--days=<D>]
+Map rolls (repeat):  coily roll --cycle=<N> [--seed=<S>]   # one seed per invocation
+Re-post a roll:      coily post-roll --cycle=<N> [--roll=<R>]  # replay discord post only
+Narrate a map:       coily narrate [--gif=PATH] [--config=PATH] [--features]
+Mod management:      coily mods-sync  |  coily mods-disable --names=A,B,C
+Announcements:       coily ad --cycle=<N> --start-ts=<unix>  |  coily sirens-post --cycle=<N> --start-ts=<unix>
+Go live:             coily go-live   # runtime flip on kai-server; git Network.eco stays private
+Go private:          coily go-private  # inverse: re-privatize the server mid-cycle
 """
 
 import sys
