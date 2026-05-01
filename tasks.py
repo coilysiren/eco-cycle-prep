@@ -125,15 +125,35 @@ def ingame(ctx, cycle, sync=False):
     }
 )
 def mods_disable(ctx, names):
-    """rm -rf the listed mod folders from kai-server's EcoServer Mods/UserCode/.
+    """rm -rf the listed mod folders from kai-server's EcoServer Mods/UserCode/,
+    then sweep orphaned AutoGen overrides whose source mod is gone.
     Note: the next `inv mods-sync` will re-deposit anything still in the
     eco-mods or eco-mods-public source repos."""
+    from eco_cycle_prep import discord_post as dp
     from eco_cycle_prep import mods
 
     arr = [n.strip() for n in names.split(",") if n.strip()]
     if not arr:
         raise ValueError("--names is required; pass e.g. --names=DFBargeIndustries")
+    dp.ops_notice(f"coily mods-disable --names={','.join(arr)}")
     mods.disable_on_server(ctx, arr)
+
+
+@task
+def mods_sweep(ctx):
+    """Prune orphaned `Mods/UserCode/AutoGen/*.override.cs` on kai-server
+    whose source no longer exists in eco-mods or eco-mods-public.
+
+    Idempotent. Safe to run between syncs to clean up stale overrides left
+    behind by `unzip -o` (which doesn't delete files removed at source).
+    Replaces the static workaround that lived in
+    infrastructure/scripts/install-eco-mod.sh (see eco-cycle-prep#5).
+    """
+    from eco_cycle_prep import discord_post as dp
+    from eco_cycle_prep import mods
+
+    dp.ops_notice("coily mods-sweep")
+    mods.sweep_autogen_on_server(ctx)
 
 
 @task(

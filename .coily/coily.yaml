@@ -40,6 +40,9 @@ commands:
   mods-disable:
     run: uv run inv mods-disable
     description: Remove mod folders from the live server (ephemeral). --names=A,B,C required.
+  mods-sweep:
+    run: uv run inv mods-sweep
+    description: Prune orphaned AutoGen overrides on the live server whose source mod is gone. Idempotent.
 
   # --- announcements ---
   ad:
