@@ -18,7 +18,7 @@ This project depends heavily on the user's other Eco (Strange Loop Games) repos,
 |---|---|---|
 | `eco-agent` | public | Python/FastAPI service (Discord + OpenTelemetry + AWS SSM), deployed to eco.coilysiren.me. `src/{main,application,discord,model,telemetry}.py`. |
 | `eco-mods` | private | Third-party mods installed on the user's private Eco server + configs. C# (.NET, `Eco.ReferenceAssemblies`). See its `AGENTS.md` for the sourcing table (mod.io / GitHub / Discord). |
-| `eco-mods-public` | public | User's own C# mods (BunWulf family: Agricultural, Biochemical, Educational/Librarian, HardwareCo; plus DirectCarbonCapture, EcoNil, MinesQuarries, ShopBoat, WorldCounter). Code generation via `main.cs` + `tasks.py` + `templates/`. |
+| `eco-mods-public` | public | User's own C# mods (BunWulf family: Agricultural, Biochemical, Educational/Librarian, HardwareCo; plus DirectCarbonCapture, EcoNil, MinesQuarries, ShopBoat, WorldCounter). Code generation via `main.cs` + Makefile + `templates/`. |
 | `eco-configs` | private | Server config diffs: `Configs/*.eco` (live), `*.original.json`, `*.diff.json`. Includes `WorldGenerator.eco` - the canonical world-gen JSON shape (Voronoi modules, biomes, rivers, lakes, crater). Most relevant to this project. |
 | `eco-mods-assets` | private | Unity project (AssetBundles, Assets, Builds, Packages, ProjectSettings). Produces asset bundles consumed by mods. |
 | `eco-mods-assets-embeded` | private | Embedded Unity assets (Icons, Prefabs, Scenes). |
@@ -76,11 +76,14 @@ The `../Eco/` sibling directory contains vendor-provided game source. Use it as 
 
 ## Dev entry point: coily
 
-`coily` (sibling repo, `../coily`) is the canonical entry point for every dev verb in this repo. The invoke tasks in `tasks.py` are the implementation; operators (human or agent) type `coily <verb>`, not `inv <task>`. The mapping is 1:1 and declared in [`.coily/coily.yaml`](.coily/coily.yaml).
+`coily` (sibling repo, `../coily`) is the canonical entry point for every dev verb in this repo. The verbs are declared in [`.coily/coily.yaml`](.coily/coily.yaml) and back onto Make targets in [`Makefile`](Makefile), which delegate to [`eco_cycle_prep/cli.py`](eco_cycle_prep/cli.py). Operators (human or agent) type `coily <verb>`, not `make <target>` or `python -m`.
 
-Running `coily --list` from anywhere inside this checkout shows all available verbs with descriptions. Flags forward verbatim, e.g. `coily prep --cycle=13`. Shell metacharacters are rejected at the coily boundary before they reach invoke.
+Running `coily --list` from anywhere inside this checkout shows all available verbs with descriptions. Flags forward verbatim, e.g. `coily prep --cycle=13`. Shell metacharacters are rejected at the coily boundary.
 
-The pyinvoke tasks still exist and still work (`uv run inv <task>`), but prose in this repo and in drafted messages references the coily form. The only reason to invoke `inv` directly is when coily itself is unavailable (e.g. on a host where it isn't installed).
+Direct paths under the hood (only when coily itself is unavailable, e.g. a host where it isn't installed):
+
+- `make <target>` from the repo root, e.g. `make prep cycle=13`.
+- `uv run python -m eco_cycle_prep.cli <verb> --cycle=13`.
 
 ## Server communications (canonical)
 
@@ -172,6 +175,6 @@ Any invoke task in this repo that modifies real server state (mutates `/home/kai
 - `coily mods-sync` — fine as-is.
 - `coily some-future-verb --token=***` — not `--token=<actual secret>`.
 
-**Rule for newly added ops commands.** Any task added to `tasks.py` that changes real server state ships with an `ops_notice(...)` call as its first concrete step, and gets a matching entry in `.coily/coily.yaml` so it's reachable as a `coily <verb>`. Both are hard requirements, not conventions: a new ops task without an `ops_notice` or without a coily passthrough is a bug to fix before merging. Reading the channel back should show every ops action that hit the server.
+**Rule for newly added ops commands.** Any verb added to `eco_cycle_prep/cli.py` that changes real server state ships with an `ops_notice(...)` call as its first concrete step, and gets a matching Make target plus an entry in `.coily/coily.yaml` so it's reachable as a `coily <verb>`. All three are hard requirements, not conventions: a new ops verb without an `ops_notice`, a Make target, or a coily passthrough is a bug to fix before merging. Reading the channel back should show every ops action that hit the server.
 
 **Existing commands.** Not retroactively required. Backfill as you touch them; don't block other work to sweep the whole file.

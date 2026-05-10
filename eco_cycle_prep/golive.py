@@ -24,7 +24,7 @@ Sequence run by `run()`:
      around in eed51c4 / 84e38d5).
 """
 
-from invoke.context import Context
+from typing import Any as Context
 
 from . import remote
 

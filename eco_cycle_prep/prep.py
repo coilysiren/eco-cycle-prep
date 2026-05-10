@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from invoke.context import Context
+from typing import Any as Context
 
 from . import discord_rest, local, remote, ssm, worldgen
 

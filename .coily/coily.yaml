@@ -1,104 +1,103 @@
 # Per-repo command allowlist for eco-cycle-prep. Coily is the canonical entry
-# point for dev verbs here; each command below delegates to the underlying
-# pyinvoke task in ../tasks.py. Invoke itself is the implementation detail -
-# operators (human or agent) type `coily <verb>`, not `inv <task>`.
+# point for dev verbs here; each command below delegates to a Make target.
+# Operators (human or agent) type `coily <verb>`, not `make <target>` -
+# the lockdown denies bare uv/python invocations.
 #
-# Invoke task flags forward verbatim through coily's user-extras mechanism.
-# All extras pass policy.ValidateArg; shell metacharacters (`$;&|<>(){}\`
-# plus \n \r \t) are rejected at invocation time.
+# Make-target arguments are forwarded as `key=value` pairs validated by
+# coily's argv policy (shell metacharacters rejected).
 #
-# Names follow coily's [a-z0-9-] rule and mirror the pyinvoke CLI shape
-# (pyinvoke auto-converts underscores in def names to dashes).
+# Names follow coily's [a-z0-9-] rule and mirror the underlying CLI shape.
 
 commands:
+  sync:
+    run: make sync
+    description: Install runtime + dev deps via uv.
+
   # --- cycle prep ---
   prep:
-    run: uv run inv prep
-    description: Weekly cycle prep - steamcmd update, sibling git pulls, Discord digest. --cycle=N required.
+    run: make prep
+    description: Weekly cycle prep - steamcmd update, sibling git pulls, Discord digest. Args - cycle=N.
   brief:
-    run: uv run inv brief
-    description: Full cycle-N channel pull plus suggestions/forum lookback. --cycle=N required, --days=D optional.
+    run: make brief
+    description: Full cycle channel pull plus suggestions/forum lookback. Args - cycle=N days=D.
   forum-dump:
-    run: uv run inv forum-dump
-    description: Standalone dump of the suggestions forum. --days=D optional (default 60).
+    run: make forum-dump
+    description: Standalone dump of the suggestions forum. Args - days=D.
 
   # --- map rolls ---
   roll:
-    run: uv run inv roll
-    description: Roll one worldgen seed end-to-end and post the preview. --cycle=N required, --seed=S optional.
+    run: make roll
+    description: Roll one worldgen seed end-to-end and post the preview. Args - cycle=N seed=S.
   post-roll:
-    run: uv run inv post-roll
-    description: Replay the Discord post for an already-captured roll preview. --cycle=N required, --roll=R optional.
+    run: make post-roll
+    description: Replay the Discord post for an already-captured roll preview. Args - cycle=N roll=R.
   narrate:
-    run: uv run inv narrate
-    description: Describe a generated map in prose. --gif, --config, --features all optional.
+    run: make narrate
+    description: Describe a generated map in prose. Args - gif=PATH config=PATH features=1.
 
   # --- mod management ---
   mods-sync:
-    run: uv run inv mods-sync
-    description: Clone eco-mods + eco-mods-public on kai-server and copy to the Eco install. Lockdown-gated.
+    run: make mods-sync
+    description: Clone eco-mods + eco-mods-public on kai-server and copy to the Eco install. Lockdown-gated. Args - check=1.
   mods-disable:
-    run: uv run inv mods-disable
-    description: Remove mod folders from the live server (ephemeral). --names=A,B,C required.
+    run: make mods-disable
+    description: Remove mod folders from the live server (ephemeral). Args - names=A,B,C.
   mods-sweep:
-    run: uv run inv mods-sweep
+    run: make mods-sweep
     description: Prune orphaned AutoGen overrides on the live server whose source mod is gone. Idempotent.
 
   # --- announcements ---
   ad:
-    run: uv run inv ad
-    description: Emit the cross-server ad markdown. --cycle=N and --start-ts=UNIX required.
+    run: make ad
+    description: Emit the cross-server ad markdown. Args - cycle=N start_ts=UNIX.
   sirens-post:
-    run: uv run inv sirens-post
-    description: "Emit the Sirens #eco-configs channel kickoff post. --cycle=N and --start-ts=UNIX required."
+    run: make sirens-post
+    description: "Emit the Sirens #eco-configs channel kickoff post. Args - cycle=N start_ts=UNIX."
   ingame:
-    run: uv run inv ingame
-    description: Render in-game Name + DetailedDescription. --cycle=N required, --sync optional to write back.
+    run: make ingame
+    description: Render in-game Name + DetailedDescription. Args - cycle=N sync=1.
 
   # --- discord plumbing ---
   discord-post:
-    run: uv run inv discord-post
-    description: Post a one-off content message via the sirens-echo bot. --channel= plus one of --body= or --from-file=.
+    run: make discord-post
+    description: Post a one-off content message via the sirens-echo bot. Args - channel=ALIAS body=STR or from_file=PATH.
   restart-notice:
-    run: uv run inv restart-notice
-    description: "Pre-restart heads-up embed to #eco-status. --reason= optional."
+    run: make restart-notice
+    description: "Pre-restart heads-up embed to #eco-status. Args - reason=STR."
   ops-notice:
-    run: uv run inv ops-notice
-    description: "Post the literal text of an ops command to #eco-status before running. --command= required."
+    run: make ops-notice
+    description: "Post the literal text of an ops command to #eco-status before running. Args - command=STR."
 
   # --- go-live / go-private ---
   go-live:
-    run: uv run inv go-live
-    description: Flip the running server to public + no-password on kai-server. --restart=true default.
+    run: make go-live
+    description: Flip the running server to public + no-password on kai-server. Args - restart=true|false.
   go-private:
-    run: uv run inv go-private
-    description: Inverse of go-live - re-privatize the running server. --restart=true default.
+    run: make go-private
+    description: Inverse of go-live - re-privatize the running server. Args - restart=true|false.
 
   # --- local Eco server (Windows / Mac) ---
-  # Copied from coilysiren/infrastructure during the migration off that
-  # repo; kai-server still runs the infra copy until the remote side
-  # follows (see open issue on this repo).
   server-run:
-    run: uv run inv server-run
-    description: Rewrite Configs for private-local dev then launch the local EcoServer. --offline optional.
+    run: make server-run
+    description: Rewrite Configs for private-local dev then launch the local EcoServer. Args - offline=1.
   server-launch:
-    run: uv run inv server-launch
-    description: Launch the local EcoServer as-is with no config rewrite. --offline optional.
+    run: make server-launch
+    description: Launch the local EcoServer as-is with no config rewrite. Args - offline=1.
   server-copy-configs:
-    run: uv run inv server-copy-configs
+    run: make server-copy-configs
     description: Copy Configs/ from sibling eco-configs into the local Eco server.
   server-copy-public-mods:
-    run: uv run inv server-copy-public-mods
+    run: make server-copy-public-mods
     description: Copy Mods/ from sibling eco-mods-public into the local Eco server.
   server-copy-private-mods:
-    run: uv run inv server-copy-private-mods
+    run: make server-copy-private-mods
     description: Copy Mods/ from sibling eco-mods into the local Eco server.
   server-deploy-mod:
-    run: uv run inv server-deploy-mod
-    description: Drop a pre-built mod DLL into the local Server/Mods/<name>/. --dll= required, --name= optional.
+    run: make server-deploy-mod
+    description: Drop a pre-built mod DLL into the local Server/Mods/<name>/. Args - dll=PATH name=STR.
   server-regen-new:
-    run: uv run inv server-regen-new
-    description: Wipe Storage + Logs and force a fresh random world on the local server. --seed=N optional.
+    run: make server-regen-new
+    description: Wipe Storage + Logs and force a fresh random world on the local server. Args - seed=N.
   server-regen-same:
-    run: uv run inv server-regen-same
+    run: make server-regen-same
     description: Wipe Storage + Logs but keep the current WorldGenerator.eco seed.

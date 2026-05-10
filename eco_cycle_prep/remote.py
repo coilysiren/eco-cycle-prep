@@ -6,7 +6,7 @@ import sys
 import threading
 from collections.abc import Iterator
 
-from invoke.context import Context
+from typing import Any as Context
 
 HOST = "kai@kai-server"
 INFRA_DIR = "~/projects/infrastructure"

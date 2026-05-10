@@ -23,7 +23,7 @@ Sequence:
      service back up automatically (same approach as `golive.py`).
 """
 
-from invoke.context import Context
+from typing import Any as Context
 
 from . import remote, safety
 

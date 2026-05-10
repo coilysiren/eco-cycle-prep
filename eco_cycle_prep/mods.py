@@ -17,7 +17,7 @@ import json
 import re
 from pathlib import Path
 
-from invoke.context import Context
+from typing import Any as Context
 
 from . import remote, safety
 
