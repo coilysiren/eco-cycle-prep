@@ -1,52 +1,35 @@
 DEFAULT_GOAL := help
 
-help:
-	@awk '/^## / \
-		{ if (c) {print c}; c=substr($$0, 4); next } \
-			c && /(^[[:alpha:]][[:alnum:]_-]+:)/ \
-		{printf "%-30s %s\n", $$1, c; c=0} \
-			END { print c }' $(MAKEFILE_LIST)
+help: ## Print this help.
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "%-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Each verb delegates to `python -m eco_cycle_prep.cli <verb>`. coily.yaml
 # wraps these as `coily <verb>`. Pass arguments as variables, e.g.
 # `make prep cycle=13` or `coily prep --cycle=13`.
 
-## install runtime + dev deps
-sync:
+sync: ## Install runtime + dev deps via uv.
 	uv sync
 
 # --- cycle prep ---
 
-## weekly cycle prep digest
-#  vars: cycle (required)
-prep:
+prep: ## Weekly cycle prep - steamcmd update, sibling git pulls, Discord digest. Args - cycle=N.
 	uv run python -m eco_cycle_prep.cli prep --cycle=$(cycle)
 
-## standalone dump of the suggestions forum
-#  vars: days (default 60)
-forum-dump:
+forum-dump: ## Standalone dump of the suggestions forum. Args - days=D.
 	uv run python -m eco_cycle_prep.cli forum-dump --days=$(or $(days),60)
 
-## full cycle channel pull plus suggestions/forum lookback
-#  vars: cycle (required), days (default 60)
-brief:
+brief: ## Full cycle channel pull plus suggestions/forum lookback. Args - cycle=N days=D.
 	uv run python -m eco_cycle_prep.cli brief --cycle=$(cycle) --days=$(or $(days),60)
 
 # --- map rolls ---
 
-## roll one worldgen seed end-to-end and post the preview
-#  vars: cycle (required), seed (optional)
-roll:
+roll: ## Roll one worldgen seed end-to-end and post the preview. Args - cycle=N seed=S.
 	uv run python -m eco_cycle_prep.cli roll --cycle=$(cycle) $(if $(seed),--seed=$(seed))
 
-## replay the Discord post for an already-captured roll preview
-#  vars: cycle (required), roll (optional)
-post-roll:
+post-roll: ## Replay the Discord post for an already-captured roll preview. Args - cycle=N roll=R.
 	uv run python -m eco_cycle_prep.cli post-roll --cycle=$(cycle) $(if $(roll),--roll=$(roll))
 
-## describe a generated map in prose
-#  vars: gif (optional), config (optional), features (set to 1 to enable)
-narrate:
+narrate: ## Describe a generated map in prose. Args - gif=PATH config=PATH features=1.
 	uv run python -m eco_cycle_prep.cli narrate \
 		$(if $(gif),--gif=$(gif)) \
 		$(if $(config),--config=$(config)) \
@@ -54,102 +37,69 @@ narrate:
 
 # --- mod management ---
 
-## clone eco-mods + eco-mods-public on kai-server and copy to the Eco install
-#  vars: check (set to 1 for lockdown-only check)
-mods-sync:
+mods-sync: ## Clone eco-mods + eco-mods-public on kai-server and copy to the Eco install. Lockdown-gated. Args - check=1.
 	uv run python -m eco_cycle_prep.cli mods-sync $(if $(check),--check)
 
-## remove mod folders from the live server (ephemeral)
-#  vars: names (required, comma-separated)
-mods-disable:
+mods-disable: ## Remove mod folders from the live server (ephemeral). Args - names=A,B,C.
 	uv run python -m eco_cycle_prep.cli mods-disable --names=$(names)
 
-## prune orphaned AutoGen overrides on the live server
-mods-sweep:
+mods-sweep: ## Prune orphaned AutoGen overrides on the live server whose source mod is gone. Idempotent.
 	uv run python -m eco_cycle_prep.cli mods-sweep
 
 # --- announcements ---
 
-## emit the cross-server ad markdown
-#  vars: cycle (required), start_ts (required, unix)
-ad:
+ad: ## Emit the cross-server ad markdown. Args - cycle=N start_ts=UNIX.
 	uv run python -m eco_cycle_prep.cli ad --cycle=$(cycle) --start-ts=$(start_ts)
 
-## emit the Sirens #eco-configs cycle-kickoff post
-#  vars: cycle (required), start_ts (required, unix)
-sirens-post:
+sirens-post: ## Emit the Sirens #eco-configs channel kickoff post. Args - cycle=N start_ts=UNIX.
 	uv run python -m eco_cycle_prep.cli sirens-post --cycle=$(cycle) --start-ts=$(start_ts)
 
-## render in-game Name + DetailedDescription
-#  vars: cycle (required), sync (set to 1 to write back)
-ingame:
+ingame: ## Render in-game Name + DetailedDescription. Args - cycle=N sync=1.
 	uv run python -m eco_cycle_prep.cli ingame --cycle=$(cycle) $(if $(sync),--sync)
 
 # --- discord plumbing ---
 
-## post a one-off content message via the sirens-echo bot
-#  vars: channel (required), body OR from_file (one of)
-discord-post:
+discord-post: ## Post a one-off content message via the sirens-echo bot. Args - channel=ALIAS body=STR or from_file=PATH.
 	uv run python -m eco_cycle_prep.cli discord-post --channel=$(channel) \
 		$(if $(body),--body="$(body)") \
 		$(if $(from_file),--from-file=$(from_file))
 
-## pre-restart heads-up embed to #eco-status
-#  vars: reason (optional)
-restart-notice:
+restart-notice: ## Pre-restart heads-up embed to #eco-status. Args - reason=STR.
 	uv run python -m eco_cycle_prep.cli restart-notice $(if $(reason),--reason="$(reason)")
 
-## post the literal text of an ops command to #eco-status
-#  vars: command (required)
-ops-notice:
+ops-notice: ## Post the literal text of an ops command to #eco-status before running. Args - command=STR.
 	uv run python -m eco_cycle_prep.cli ops-notice --command="$(command)"
 
 # --- go-live / go-private ---
 
-## flip the running server to public + no-password on kai-server
-#  vars: restart (default true)
-go-live:
+go-live: ## Flip the running server to public + no-password on kai-server. Args - restart=true|false.
 	uv run python -m eco_cycle_prep.cli go-live --restart=$(or $(restart),true)
 
-## inverse of go-live - re-privatize the running server
-#  vars: restart (default true)
-go-private:
+go-private: ## Inverse of go-live - re-privatize the running server. Args - restart=true|false.
 	uv run python -m eco_cycle_prep.cli go-private --restart=$(or $(restart),true)
 
 # --- local Eco server (Windows / Mac) ---
 
-## rewrite Configs for private-local dev then launch the local EcoServer
-#  vars: offline (set to 1 to skip SSM)
-server-run:
+server-run: ## Rewrite Configs for private-local dev then launch the local EcoServer. Args - offline=1.
 	uv run python -m eco_cycle_prep.cli server-run $(if $(offline),--offline)
 
-## launch the local EcoServer as-is with no config rewrite
-#  vars: offline (set to 1 to skip SSM)
-server-launch:
+server-launch: ## Launch the local EcoServer as-is with no config rewrite. Args - offline=1.
 	uv run python -m eco_cycle_prep.cli server-launch $(if $(offline),--offline)
 
-## copy Configs/ from sibling eco-configs into the local Eco server
-server-copy-configs:
+server-copy-configs: ## Copy Configs/ from sibling eco-configs into the local Eco server.
 	uv run python -m eco_cycle_prep.cli server-copy-configs
 
-## copy Mods/ from sibling eco-mods-public into the local Eco server
-server-copy-public-mods:
+server-copy-public-mods: ## Copy Mods/ from sibling eco-mods-public into the local Eco server.
 	uv run python -m eco_cycle_prep.cli server-copy-public-mods
 
-## copy Mods/ from sibling eco-mods into the local Eco server
-server-copy-private-mods:
+server-copy-private-mods: ## Copy Mods/ from sibling eco-mods into the local Eco server.
 	uv run python -m eco_cycle_prep.cli server-copy-private-mods
 
-## drop a pre-built mod DLL into the local Server/Mods/<name>/
-#  vars: dll (required), name (optional, defaults to DLL stem)
-server-deploy-mod:
+server-deploy-mod: ## Drop a pre-built mod DLL into the local Server/Mods/<name>/. Args - dll=PATH name=STR.
 	uv run python -m eco_cycle_prep.cli server-deploy-mod --dll=$(dll) $(if $(name),--name=$(name))
 
-## wipe Storage + Logs and force a fresh random world on the local server
-#  vars: seed (default 0)
-server-regen-new:
+server-regen-new: ## Wipe Storage + Logs and force a fresh random world on the local server. Args - seed=N.
 	uv run python -m eco_cycle_prep.cli server-regen-new --seed=$(or $(seed),0)
 
-## wipe Storage + Logs but keep the current WorldGenerator.eco seed
-server-regen-same:
+server-regen-same: ## Wipe Storage + Logs but keep the current WorldGenerator.eco seed.
 	uv run python -m eco_cycle_prep.cli server-regen-same
