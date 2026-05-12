@@ -134,3 +134,11 @@ the single source of truth for Eco ops.
   `eco_cycle_prep/templates/` for the cross-server ad and the Sirens
   kickoff post. Per-cycle bullets live under `rolls/_prep/`
   (gitignored).
+
+## See also
+
+- [README.md](../README.md) - human-facing intro.
+- [AGENTS.md](../AGENTS.md) - agent-facing operating rules.
+- [.coily/coily.yaml](../.coily/coily.yaml) - allowlisted commands.
+
+Cross-reference convention from [coilysiren/coilyco-ai#313](https://github.com/coilysiren/coilyco-ai/issues/313).

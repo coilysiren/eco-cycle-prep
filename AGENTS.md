@@ -178,3 +178,11 @@ Any invoke task in this repo that modifies real server state (mutates `/home/kai
 **Rule for newly added ops commands.** Any verb added to `eco_cycle_prep/cli.py` that changes real server state ships with an `ops_notice(...)` call as its first concrete step, and gets a matching Make target plus an entry in `.coily/coily.yaml` so it's reachable as a `coily <verb>`. All three are hard requirements, not conventions: a new ops verb without an `ops_notice`, a Make target, or a coily passthrough is a bug to fix before merging. Reading the channel back should show every ops action that hit the server.
 
 **Existing commands.** Not retroactively required. Backfill as you touch them; don't block other work to sweep the whole file.
+
+## See also
+
+- [README.md](README.md) - human-facing intro.
+- [docs/FEATURES.md](docs/FEATURES.md) - inventory of what ships today.
+- [.coily/coily.yaml](.coily/coily.yaml) - allowlisted commands. Agents route through coily, not bare `make` / `uv` / `python` / `npm` / `cargo` / `dotnet`.
+
+Cross-reference convention from [coilysiren/coilyco-ai#313](https://github.com/coilysiren/coilyco-ai/issues/313).

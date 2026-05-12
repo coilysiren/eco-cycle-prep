@@ -84,3 +84,11 @@ inventory): `/eco/server-id`, `/sirens-echo/discord-bot-token`,
 `/discord/server-id`, `/discord/server-ad-invite`,
 `/discord/channel/{cycle-current,eco-configs,suggestions,suggestions-forum}`,
 `/modio/api-key`.
+
+## See also
+
+- [AGENTS.md](AGENTS.md) - agent-facing operating rules.
+- [docs/FEATURES.md](docs/FEATURES.md) - inventory of what ships today.
+- [.coily/coily.yaml](.coily/coily.yaml) - allowlisted commands. Agents route through coily, not bare `make` / `uv` / `python` / `npm` / `cargo` / `dotnet`.
+
+Cross-reference convention from [coilysiren/coilyco-ai#313](https://github.com/coilysiren/coilyco-ai/issues/313).
