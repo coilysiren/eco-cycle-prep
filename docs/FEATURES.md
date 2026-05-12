@@ -7,7 +7,7 @@ the list flat and headline-only. Detail belongs in module docstrings or
 `README.md`.
 
 All operator entry points are `coily <verb>`. Implementations live as
-pyinvoke tasks in `tasks.py` and modules under `eco_cycle_prep/`.
+argparse subcommands in `eco_cycle_prep/cli.py` and helper modules under `eco_cycle_prep/`, wired through Makefile targets that `.coily/coily.yaml` exposes.
 
 ## Cycle prep and intel
 

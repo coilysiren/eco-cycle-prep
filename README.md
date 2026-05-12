@@ -8,7 +8,7 @@ End-to-end tooling for preparing a fresh cycle on my [Eco](https://play.eco/)
 server, "Eco via Sirens". Map generation is one phase; the rest covers
 source sync, community-intel aggregation from Discord, config tuning, mod
 management, and the go-live announcements. Written as a set of
-[Invoke](https://pyinvoke.org/) tasks in Python, with `string.Template`
+an argparse CLI in Python (`eco_cycle_prep/cli.py`) driven by Makefile + coily, with `string.Template`
 markdown stubs for the two recurring announcement formats (the cross-server
 ad on the main Eco Discord, and the longer post on the Sirens
 `#eco-configs` channel).
@@ -40,8 +40,8 @@ to the biosphere. Kai's server, "Eco via Sirens", runs ~2-month cycles.
 ## Commands
 
 All dev verbs run through [`coily`](https://github.com/coilysiren/coily),
-declared in [`.coily/coily.yaml`](.coily/coily.yaml). Pyinvoke is the
-implementation layer; coily is the operator entry point. Run `coily
+declared in [`.coily/coily.yaml`](.coily/coily.yaml). Coily delegates to
+`make` targets, which call `python -m eco_cycle_prep.cli <verb>`. Run `coily
 --list` from inside this checkout to see every verb with its description.
 
 - `coily prep --cycle=N` — weekly prep: steamcmd update, git pulls on
