@@ -101,3 +101,18 @@ commands:
   server-regen-same:
     run: make server-regen-same
     description: Wipe Storage + Logs but keep the current WorldGenerator.eco seed.
+
+# Catalog metadata for the cross-repo knowledge graph.
+# Schema: coilysiren/coilyco-ai#420 (tracker).
+catalog:
+  kind: Component
+  type: service
+  system: eco
+  owner: kai
+  lifecycle: production
+  description: "Cycle-prep automation for an Eco multiplayer server: worldgen rolls, Discord announcements, mod sync, community-intel digest."
+  dependsOn:
+    - coilysiren/coily
+    - coilysiren/eco-mods-public
+    - coilysiren/infrastructure
+  providesApis: []
