@@ -79,7 +79,7 @@ bullets live under `rolls/_prep/` (gitignored).
 uv sync
 ```
 
-SSM parameters required (see `coilyco-ai/AGENTS.md` for the full
+SSM parameters required (see `agentic-os-kai/AGENTS.md` for the full
 inventory): `/eco/server-id`, `/sirens-echo/discord-bot-token`,
 `/discord/server-id`, `/discord/server-ad-invite`,
 `/discord/channel/{cycle-current,eco-configs,suggestions,suggestions-forum}`,
@@ -91,4 +91,4 @@ inventory): `/eco/server-id`, `/sirens-echo/discord-bot-token`,
 - [docs/FEATURES.md](docs/FEATURES.md) - inventory of what ships today.
 - [.coily/coily.yaml](.coily/coily.yaml) - allowlisted commands. Agents route through coily, not bare `make` / `uv` / `python` / `npm` / `cargo` / `dotnet`.
 
-Cross-reference convention from [coilysiren/coilyco-ai#313](https://github.com/coilysiren/coilyco-ai/issues/313).
+Cross-reference convention from [coilysiren/agentic-os-kai#313](https://github.com/coilysiren/agentic-os-kai/issues/313).
