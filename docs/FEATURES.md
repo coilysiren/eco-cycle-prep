@@ -41,8 +41,6 @@ Entry points are `coily <verb>`, argparse subcommands in `eco_cycle_prep/cli.py`
 
 ## Local-dev Eco server (Windows / Mac)
 
-Migrated from `coilysiren/infrastructure/src/eco.py`; this repo is single source of truth for Eco ops.
-
 - **Prep + launch** - `coily server-run [--offline]`. Rewrites `Network.eco`, `DiscordLink.eco`, `Difficulty.eco`, creates `Sleep.eco`, launches server.
 - **Launch as-is** - `coily server-launch [--offline]`.
 - **Copy configs** - `coily server-copy-configs`. Pulls `Configs/` from sibling `eco-configs`.
